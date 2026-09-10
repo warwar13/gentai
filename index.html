@@ -88,36 +88,55 @@
       </section>
 
       <section class="metrics-grid" aria-label="Live measurements">
-        <article class="metric-card metric-featured">
-          <div class="metric-icon power-icon" aria-hidden="true">ϟ</div>
+        <article id="power-card" class="metric-card metric-featured" data-status="neutral">
+          <div class="metric-symbol metric-symbol-power" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M13.5 2 6 13h5l-.5 9L18 10h-5l.5-8Z"></path></svg>
+          </div>
           <p>Live power</p>
           <strong><span id="power-value">—</span><small>W</small></strong>
-          <span id="power-caption">No load data</span>
+          <span id="power-caption" class="metric-status">Waiting</span>
+          <div class="metric-meter" aria-hidden="true"><span id="power-meter"></span></div>
+          <span id="power-limit-label" class="metric-footnote">600 W limit</span>
         </article>
         <article class="metric-card">
+          <div class="metric-symbol metric-symbol-static" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2"></rect><path d="M21 10v4M7 12h3m-1.5-1.5v3m4.5-1.5h3"></path></svg>
+          </div>
           <p>Pack voltage</p>
           <strong><span id="voltage-value">—</span><small>V</small></strong>
           <span>Across the battery</span>
         </article>
         <article class="metric-card">
+          <div class="metric-symbol metric-symbol-static" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 8h12m-3-3 3 3-3 3M19 16H7m3 3-3-3 3-3"></path></svg>
+          </div>
           <p>Current</p>
           <strong><span id="current-value">—</span><small>A</small></strong>
           <span id="current-caption">Signed BMS current</span>
         </article>
-        <article class="metric-card">
+        <article id="health-card" class="metric-card" data-status="neutral">
+          <div class="metric-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.4-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.6-7 11-7 11Z"></path><path d="M7.8 13h2l1.2-3 2 6 1.2-3h2"></path></svg>
+          </div>
           <p>State of health</p>
           <strong><span id="soh-value">—</span><small>%</small></strong>
-          <span>Reported by the BMS</span>
+          <span id="soh-caption" class="metric-status">Waiting</span>
         </article>
-        <article class="metric-card">
+        <article id="ambient-card" class="metric-card" data-status="neutral">
+          <div class="metric-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M10 14.8V5a3 3 0 0 1 6 0v9.8a5 5 0 1 1-6 0Z"></path><path d="M13 8h3M13 12h3"></path></svg>
+          </div>
           <p>Ambient</p>
           <strong><span id="ambient-value">—</span><small>°C</small></strong>
-          <span>Battery environment</span>
+          <span id="ambient-caption" class="metric-status">Waiting</span>
         </article>
-        <article class="metric-card">
+        <article id="mos-card" class="metric-card" data-status="neutral">
+          <div class="metric-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M10 14.8V5a3 3 0 0 1 6 0v9.8a5 5 0 1 1-6 0Z"></path><path d="M13 7h3M13 10h3M13 13h3"></path></svg>
+          </div>
           <p>MOS temperature</p>
           <strong><span id="mos-value">—</span><small>°C</small></strong>
-          <span>Power electronics</span>
+          <span id="mos-caption" class="metric-status">Waiting</span>
         </article>
       </section>
 
@@ -177,7 +196,13 @@
             <p class="eyebrow">Pack detail</p>
             <h2 id="detail-title">Cells & status</h2>
           </div>
-          <span id="cycle-count" class="cycle-count">— cycles</span>
+          <div class="detail-heading-actions">
+            <span id="cell-balance-status" class="glance-status" data-status="neutral">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="6" width="16" height="12" rx="2"></rect><path d="M21 10v4M7 12h3m3 0h3"></path></svg>
+              <span>Waiting for cells</span>
+            </span>
+            <span id="cycle-count" class="cycle-count">— cycles</span>
+          </div>
         </div>
 
         <div class="cell-summary">

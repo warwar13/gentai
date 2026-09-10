@@ -56,6 +56,12 @@ One reading is stored locally each minute while the page is open and connected. 
 
 If the browser suspends Bluefy, Bluetooth is out of range, or the dashboard is closed, that interval is left as a gap. The dashboard never estimates missing usage.
 
+## At-a-glance indicators
+
+The live cards use green, amber, and red display guides. Power is compared with the configured 600 W limit: below 60% is comfortable, 60–85% is moderate, and 85% or more is near the limit. Health is green from 90%, amber from 80%, and red below 80%. Ambient temperature becomes amber at 35°C and red at 45°C; MOS temperature becomes amber at 45°C and red at 60°C. Cell spread is green through 20 mV, amber through 50 mV, and red above 50 mV.
+
+These colors are quick visual guides, not replacements for the battery's own protection limits. The BMS protection-status panel remains the authoritative warning display.
+
 ## Tests
 
 With Node.js installed:

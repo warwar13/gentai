@@ -10,6 +10,7 @@ import {
   mergeTelemetry,
 } from "./protocol.js";
 import { HistoryStore, analyseHistory, analyseRange, historyToCsv } from "./storage.js";
+import { assessCellBalance, assessHealth, assessPower, assessTemperature, POWER_LIMIT_W } from "./status.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -514,13 +515,19 @@ function renderTelemetry(data) {
   $("#mode-pill").textContent = titleCase(data.mode);
 
   setValue("#power-value", Math.abs(data.powerW), 0);
-  $("#power-caption").textContent = data.mode === "discharging" ? "Being used now" : data.mode === "charging" ? "Going into battery" : "Battery is idle";
+  const powerStatus = assessPower(data.powerW);
+  setGlanceState("#power-card", "#power-caption", powerStatus);
+  $("#power-meter").style.width = `${Math.min(powerStatus.ratio ?? 0, 1) * 100}%`;
+  $("#power-limit-label").textContent = `${formatNumber((powerStatus.ratio ?? 0) * 100, 0)}% of ${POWER_LIMIT_W} W limit`;
   setValue("#voltage-value", data.voltageV, 2);
   $("#current-value").textContent = `${data.currentA > 0 ? "+" : ""}${formatNumber(data.currentA, 2)}`;
   $("#current-caption").textContent = data.currentA > 0 ? "Positive means charging" : data.currentA < 0 ? "Negative means discharging" : "No measurable current";
   setValue("#soh-value", data.sohPct, 0);
   setValue("#ambient-value", data.temperaturesC.ambient, 0);
   setValue("#mos-value", data.temperaturesC.mos, 0);
+  setGlanceState("#health-card", "#soh-caption", assessHealth(data.sohPct));
+  setGlanceState("#ambient-card", "#ambient-caption", assessTemperature(data.temperaturesC.ambient, "ambient"));
+  setGlanceState("#mos-card", "#mos-caption", assessTemperature(data.temperaturesC.mos, "mos"));
   $("#remaining-capacity").textContent = `${formatNumber(data.remainingAh, 1)} Ah remaining`;
   $("#full-capacity").textContent = `${formatNumber(data.fullAh, 1)} Ah full`;
   $("#cycle-count").textContent = `${data.cycles} cycles`;
@@ -546,16 +553,28 @@ function renderEstimate(estimate) {
 }
 
 function renderCells(cells, min, max, delta) {
+  const balance = assessCellBalance(delta);
+  const balanceBadge = $("#cell-balance-status");
+  balanceBadge.dataset.status = balance.state;
+  balanceBadge.querySelector("span").textContent = balance.label;
   $("#cell-min").textContent = min === null ? "— V" : `${formatNumber(min, 3)} V`;
   $("#cell-max").textContent = max === null ? "— V" : `${formatNumber(max, 3)} V`;
   $("#cell-delta").textContent = delta === null ? "— mV" : `${formatNumber(delta * 1000, 0)} mV`;
   $("#cell-list").innerHTML = cells.length
-    ? cells.map((value, index) => `<div class="cell-item"><span>Cell ${index + 1}</span><strong>${formatNumber(value, 3)} V</strong></div>`).join("")
+    ? cells.map((value, index) => `<div class="cell-item" data-status="${balance.state}"><span>Cell ${index + 1}</span><strong>${formatNumber(value, 3)} V</strong><i aria-hidden="true"></i></div>`).join("")
     : "<p>No cell readings</p>";
 }
 
 function renderTemperatures(probes) {
-  $("#probe-list").innerHTML = probes.map((value, index) => `<span>T${index + 1} · ${formatNumber(value, 0)}°C</span>`).join("");
+  $("#probe-list").innerHTML = probes.map((value, index) => {
+    const status = assessTemperature(value, "ambient");
+    return `<span data-status="${status.state}"><i aria-hidden="true"></i>T${index + 1} · ${formatNumber(value, 0)}°C</span>`;
+  }).join("");
+}
+
+function setGlanceState(cardSelector, labelSelector, assessment) {
+  $(cardSelector).dataset.status = assessment.state;
+  $(labelSelector).textContent = assessment.label;
 }
 
 function renderWarnings(warnings) {
