@@ -9,7 +9,7 @@ import {
   decodeRunningStatus,
   mergeTelemetry,
 } from "./protocol.js";
-import { HistoryStore, analyseHistory, historyToCsv, toHistorySample } from "./storage.js";
+import { HistoryStore, analyseHistory, historyToCsv } from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -25,6 +25,7 @@ let selectedDevice = null;
 let reconnectTimer = null;
 let reconnectAttempt = 0;
 let allowAutomaticReconnect = true;
+let connectionInProgress = false;
 let chartMetric = "usage";
 let chartRangeHours = 24;
 let toastTimer = null;
@@ -55,6 +56,10 @@ class GentaiBatteryClient {
 
   async connect(device) {
     if (!device) throw new Error("No battery selected");
+    if (device.gatt.connected) {
+      this.disconnect("restart");
+      await delay(900);
+    }
     this.pollGeneration += 1;
     this.rejectPending(new Error("Connection restarted"));
     this.frameStream.reset();
@@ -240,10 +245,11 @@ const client = new GentaiBatteryClient({
   onPacketError: (error) => console.warn("Ignored malformed BMS packet", error),
   onError: (error, fatal) => {
     showToast(fatal ? `Protocol validation stopped: ${error.message}` : `Connection error: ${error.message}`);
+    showConnectionError(error);
     if (fatal) allowAutomaticReconnect = false;
   },
   onDisconnect: (reason) => {
-    if (reason !== "manual" && reason !== "fatal" && allowAutomaticReconnect) scheduleReconnect();
+    if (!["manual", "fatal", "restart", "pagehide"].includes(reason) && allowAutomaticReconnect) scheduleReconnect();
   },
 });
 
@@ -282,7 +288,34 @@ function bindEvents() {
     } catch (error) {
       if (error.name !== "NotFoundError") {
         setConnectionState("error", error.message);
+        showConnectionError(error);
         showToast(error.message);
+      }
+    }
+  });
+
+  $("#release-reconnect-button").addEventListener("click", async () => {
+    allowAutomaticReconnect = true;
+    try {
+      await connectSelectedDevice({ forceRelease: true });
+    } catch (error) {
+      setConnectionState("error", error.message);
+      showConnectionError(error);
+    }
+  });
+
+  $("#choose-again-button").addEventListener("click", async () => {
+    allowAutomaticReconnect = true;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    if (client.device?.gatt?.connected) client.disconnect("restart");
+    selectedDevice = null;
+    try {
+      await requestBattery();
+    } catch (error) {
+      if (error.name !== "NotFoundError") {
+        setConnectionState("error", error.message);
+        showConnectionError(error);
       }
     }
   });
@@ -311,6 +344,12 @@ function bindEvents() {
     if (document.visibilityState === "visible" && selectedDevice && !client.connected && allowAutomaticReconnect) {
       scheduleReconnect(300);
     }
+  });
+
+  window.addEventListener("pagehide", () => {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    if (client.device?.gatt?.connected) client.disconnect("pagehide");
   });
 
   setInterval(() => {
@@ -347,18 +386,36 @@ async function reconnectRememberedDevice() {
   }
 }
 
-async function connectSelectedDevice() {
-  if (!selectedDevice || client.connected) return;
+async function connectSelectedDevice({ forceRelease = false } = {}) {
+  if (!selectedDevice || connectionInProgress) return;
+  if (client.connected && !forceRelease) return;
+  connectionInProgress = true;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
   $("#device-name").textContent = selectedDevice.name || "Gentai battery";
   $("#dialog-device").textContent = selectedDevice.name || "Gentai battery";
   try {
-    await client.connect(selectedDevice);
-    reconnectAttempt = 0;
-  } catch (error) {
-    if (selectedDevice.gatt?.connected) client.disconnect("unexpected");
-    throw error;
+    if (forceRelease && selectedDevice.gatt?.connected) {
+      client.disconnect("restart");
+      await delay(1_200);
+    }
+
+    let lastError;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await client.connect(selectedDevice);
+        reconnectAttempt = 0;
+        $("#connection-error").hidden = true;
+        return;
+      } catch (error) {
+        lastError = error;
+        if (selectedDevice.gatt?.connected) client.disconnect("restart");
+        if (attempt === 0) await delay(1_200);
+      }
+    }
+    throw lastError;
+  } finally {
+    connectionInProgress = false;
   }
 }
 
@@ -372,6 +429,7 @@ function scheduleReconnect(delayMs) {
     try {
       await connectSelectedDevice();
     } catch (error) {
+      showConnectionError(error);
       showToast(`Reconnect failed: ${error.message}`);
       scheduleReconnect();
     }
@@ -389,6 +447,7 @@ async function forgetBattery() {
   }
   selectedDevice = null;
   localStorage.removeItem("gentai-device-id");
+  $("#connection-error").hidden = true;
   $("#dialog-device").textContent = "None";
   $("#details-dialog").close();
   showToast("Battery permission removed from this browser. Battery settings were not changed.");
@@ -402,6 +461,7 @@ function setConnectionState(state, detail) {
   const button = $("#connect-button");
 
   if (state === "connected") {
+    $("#connection-error").hidden = true;
     button.textContent = "Connected";
     button.disabled = true;
   } else if (state === "connecting" || state === "reconnecting") {
@@ -754,6 +814,23 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("visible"), 4_500);
 }
 
+function showConnectionError(error) {
+  const message = String(error?.message || error || "Unknown Bluetooth error");
+  const lower = message.toLowerCase();
+  let guidance;
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    guidance = "The battery connected but did not answer. Completely close the Gentai app and any BLE scanner, stay near the battery, then use Release & reconnect.";
+  } else if (lower.includes("gatt") || lower.includes("network") || lower.includes("connect")) {
+    guidance = "Bluefy or the battery may still hold the previous BLE session. Close other battery apps, then use Release & reconnect or choose the battery again.";
+  } else if (lower.includes("service") || lower.includes("characteristic")) {
+    guidance = "The expected Gentai BLE service was not available. Choose DCHE123 again and ensure no other app is connected.";
+  } else {
+    guidance = "Close the Gentai app and BLE scanner, keep Bluetooth enabled, then release the old session or choose DCHE123 again.";
+  }
+  $("#connection-error-message").textContent = `${guidance} Error: ${message}`;
+  $("#connection-error").hidden = false;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 }
@@ -761,5 +838,6 @@ function escapeHtml(value) {
 initialize().catch((error) => {
   console.error(error);
   setConnectionState("error", error.message);
+  showConnectionError(error);
   showToast(`Dashboard failed to start: ${error.message}`);
 });

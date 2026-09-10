@@ -37,6 +37,17 @@ The live dashboard must be served through HTTPS and opened in Bluefy on iPadOS. 
 
 The first connection needs a user gesture. Later launches attempt to reconnect to Bluefy's remembered device automatically. A visible Reconnect button remains available when iPadOS requires another gesture.
 
+### Reconnect recovery
+
+If Bluefy or the battery retains an old Bluetooth session, the dashboard displays a persistent recovery panel:
+
+1. Completely close the official Gentai app and any BLE scanner because the battery accepts only one active client.
+2. Tap **Release & reconnect** to disconnect the stale GATT session and retry cleanly.
+3. If that fails, tap **Choose battery again** and select `DCHE123` from Bluefy's picker.
+4. As a final device-level reset, force-close Bluefy, toggle iPad Bluetooth off and on, reopen Bluefy, and choose the battery again.
+
+The dashboard explicitly disconnects its browser GATT session when its page closes to reduce future stale connections.
+
 ## History and analysis
 
 One reading is stored locally each minute while the page is open and connected. Records are retained for 30 days in IndexedDB. The dashboard calculates daily Ah and Wh consumed, net charge change, the highest 15-minute average load, and the time charge crosses 20%. Export CSV creates a local copy for spreadsheet analysis. No telemetry is uploaded.

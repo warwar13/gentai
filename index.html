@@ -39,9 +39,20 @@
       Open this HTTPS page in the Bluefy app on the iPad, then tap Connect battery.
     </div>
 
+    <div id="connection-error" class="connection-error" hidden>
+      <div>
+        <strong>Battery connection needs attention</strong>
+        <span id="connection-error-message">The previous Bluetooth session may still be open.</span>
+      </div>
+      <div class="connection-error-actions">
+        <button id="release-reconnect-button" class="button button-quiet" type="button">Release & reconnect</button>
+        <button id="choose-again-button" class="button button-primary" type="button">Choose battery again</button>
+      </div>
+    </div>
+
     <main class="dashboard">
       <section class="panel charge-panel" aria-labelledby="charge-title">
-        <div class="panel-heading">
+        <div class="panel-heading charge-heading">
           <div>
             <p class="eyebrow">State of charge</p>
             <h2 id="charge-title">Battery level</h2>

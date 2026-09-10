@@ -169,6 +169,24 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   font-size: 0.78rem;
 }
 
+.connection-error {
+  margin: 14px 18px 0;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #ffd9d9;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.28);
+  border-radius: 12px;
+  font-size: 0.72rem;
+}
+
+.connection-error strong, .connection-error span { display: block; }
+.connection-error span { margin-top: 3px; color: #cfaeae; font-size: 0.64rem; }
+.connection-error-actions { display: flex; gap: 7px; flex: 0 0 auto; }
+
 .dashboard {
   padding: 16px max(18px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
   display: grid;
@@ -192,7 +210,9 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .panel-heading { justify-content: space-between; gap: 12px; }
 .panel-heading.compact { align-items: flex-start; }
 
-.charge-panel { grid-area: charge; display: flex; flex-direction: column; }
+.charge-panel { grid-area: charge; display: flex; flex-direction: column; position: relative; min-width: 0; }
+.charge-heading { display: block; min-height: 40px; padding-right: 108px; }
+.charge-heading .mode-pill { position: absolute; top: 17px; right: 17px; white-space: nowrap; }
 .mode-pill {
   padding: 5px 8px;
   border-radius: 999px;
@@ -209,8 +229,9 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 
 .soc-gauge {
   --soc-angle: 0deg;
-  width: min(170px, 76%);
-  aspect-ratio: 1;
+  width: 170px;
+  height: 170px;
+  flex: 0 0 170px;
   margin: 16px auto 12px;
   padding: 13px;
   border-radius: 50%;
@@ -363,6 +384,9 @@ dialog dd { margin: 0; text-align: right; }
   .topbar { align-items: flex-start; }
   .brand .eyebrow, .connection-copy { display: none; }
   .connection-actions { margin-left: auto; }
+  .connection-error { align-items: stretch; flex-direction: column; }
+  .connection-error-actions { justify-content: stretch; }
+  .connection-error-actions .button { flex: 1; }
   .dashboard { grid-template-columns: 1fr; grid-template-areas: "charge" "metrics" "analysis" "chart" "detail" "alerts"; }
   .charge-panel { min-height: 410px; }
   .chart-header { align-items: flex-start; flex-direction: column; }
