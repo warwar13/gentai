@@ -30,7 +30,13 @@
           <small id="last-updated">No readings yet</small>
         </div>
         <button id="connect-button" class="button button-primary" type="button">Connect battery</button>
-        <button id="details-button" class="icon-button" type="button" aria-label="Connection details">⋯</button>
+        <button id="details-button" class="icon-button" type="button" aria-label="Connection details">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <circle cx="5" cy="12" r="1.8"></circle>
+            <circle cx="12" cy="12" r="1.8"></circle>
+            <circle cx="19" cy="12" r="1.8"></circle>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -202,6 +208,57 @@
           <div id="alerts-list" class="alerts-list">The battery has not reported a protection or warning condition.</div>
         </div>
       </section>
+
+      <section class="deep-analytics" aria-labelledby="deep-analytics-title">
+        <div class="analytics-header">
+          <div>
+            <p class="eyebrow">Recorded battery data</p>
+            <h2 id="deep-analytics-title">Detailed usage analytics</h2>
+            <p>Understand when energy was used, when the battery charged, and how quickly its level changed.</p>
+          </div>
+          <div class="segmented analytics-range" aria-label="Analytics period">
+            <button type="button" class="active" data-analytics-range="24">24h</button>
+            <button type="button" data-analytics-range="168">7d</button>
+            <button type="button" data-analytics-range="720">30d</button>
+          </div>
+        </div>
+
+        <div class="analytics-kpis">
+          <article><span>Energy used</span><strong id="range-used">— Wh</strong><small>Leaving the battery</small></article>
+          <article><span>Energy charged</span><strong id="range-charged">— Wh</strong><small>Going into the battery</small></article>
+          <article><span>Time under load</span><strong id="range-runtime">—</strong><small>Observed connected time</small></article>
+          <article><span>Lowest charge</span><strong id="range-lowest-soc">—</strong><small id="range-lowest-time">No readings</small></article>
+        </div>
+
+        <div class="analytics-graphs">
+          <article class="analytics-card">
+            <div class="analytics-card-heading">
+              <div><h3>Energy balance</h3><p>Cumulative energy used and charged</p></div>
+              <div class="legend"><span class="legend-use">Used</span><span class="legend-charge">Charged</span></div>
+            </div>
+            <div class="analytics-canvas-wrap"><canvas id="energy-chart" aria-label="Cumulative used and charged energy chart"></canvas><div id="energy-chart-empty" class="chart-empty">Not enough recorded data yet</div></div>
+          </article>
+          <article class="analytics-card">
+            <div class="analytics-card-heading">
+              <div><h3>Usage by time of day</h3><p>Energy grouped by hour</p></div>
+              <div class="legend"><span class="legend-use">Used</span><span class="legend-charge">Charged</span></div>
+            </div>
+            <div class="analytics-canvas-wrap"><canvas id="hourly-chart" aria-label="Hourly battery usage chart"></canvas><div id="hourly-chart-empty" class="chart-empty">Not enough recorded data yet</div></div>
+          </article>
+        </div>
+
+        <article class="sessions-card">
+          <div class="analytics-card-heading">
+            <div><h3>Charge and usage sessions</h3><p>Most recent continuous periods, newest first</p></div>
+          </div>
+          <div class="sessions-table-wrap">
+            <table>
+              <thead><tr><th>Type</th><th>Started</th><th>Duration</th><th>SOC change</th><th>Average</th><th>Peak</th><th>Energy</th></tr></thead>
+              <tbody id="sessions-body"><tr><td colspan="7" class="empty-cell">Sessions will appear as history is recorded.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
     </main>
 
     <dialog id="details-dialog">
@@ -222,6 +279,25 @@
         </dl>
         <div class="dialog-actions">
           <button id="forget-button" class="button button-danger" type="button">Forget battery on this iPad</button>
+          <button class="button button-primary" value="cancel">Done</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="export-dialog" class="export-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Local history</p>
+            <h2>Export battery data</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </div>
+        <p class="export-help">Bluefy did not open the iPad share sheet. You can copy the CSV below or try the browser download fallback.</p>
+        <textarea id="export-text" readonly aria-label="CSV battery history"></textarea>
+        <div class="dialog-actions">
+          <button id="copy-export-button" class="button button-quiet" type="button">Copy CSV</button>
+          <button id="download-export-button" class="button button-quiet" type="button">Try download</button>
           <button class="button button-primary" value="cancel">Done</button>
         </div>
       </form>

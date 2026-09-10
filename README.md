@@ -50,7 +50,9 @@ The dashboard explicitly disconnects its browser GATT session when its page clos
 
 ## History and analysis
 
-One reading is stored locally each minute while the page is open and connected. Records are retained for 30 days in IndexedDB. The dashboard calculates daily Ah and Wh consumed, net charge change, the highest 15-minute average load, and the time charge crosses 20%. Export CSV creates a local copy for spreadsheet analysis. No telemetry is uploaded.
+One reading is stored locally each minute while the page is open and connected. Records are retained for 30 days in IndexedDB. The dashboard calculates daily Ah and Wh consumed, net charge change, the highest 15-minute average load, and the time charge crosses 20%. Its detailed section shows cumulative used versus charged energy, use by hour, lowest charge, connected load time, and individual charging/discharging sessions over 24 hours, 7 days, or 30 days.
+
+**Export CSV** opens the iPad share sheet when Bluefy supports file sharing; choose **Save to Files** to keep the CSV locally. If file sharing is unavailable, the dashboard opens a fallback where the CSV can be copied or downloaded. No telemetry is uploaded.
 
 If the browser suspends Bluefy, Bluetooth is out of range, or the dashboard is closed, that interval is left as a gap. The dashboard never estimates missing usage.
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyseHistory, findPeakUsageWindow, historyToCsv } from "../storage.js";
+import { analyseHistory, analyseRange, buildSessions, findPeakUsageWindow, historyToCsv } from "../storage.js";
 
 test("calculates daily usage and records the 20 percent crossing", () => {
   const now = new Date(2026, 8, 10, 12, 0, 0);
@@ -35,6 +35,33 @@ test("does not report a 15-minute peak across disconnected gaps", () => {
     { timestamp: start + 12 * 60_000, powerW: -500 },
   ];
   assert.equal(findPeakUsageWindow(samples, 15 * 60_000), null);
+});
+
+test("separates used and charged energy for detailed analytics", () => {
+  const start = new Date(2026, 8, 10, 8, 0, 0).getTime();
+  const samples = [
+    { timestamp: start, socPct: 50, currentA: -10, powerW: -100 },
+    { timestamp: start + 60_000, socPct: 49, currentA: -10, powerW: -100 },
+    { timestamp: start + 120_000, socPct: 50, currentA: 10, powerW: 100 },
+    { timestamp: start + 180_000, socPct: 51, currentA: 10, powerW: 100 },
+  ];
+  const result = analyseRange(samples, start, start + 180_000);
+  assert.ok(result.usedWh > 1.6);
+  assert.ok(result.chargedWh > 1.6);
+  assert.equal(result.lowestSocPct, 49);
+});
+
+test("builds separate charge and discharge sessions", () => {
+  const start = Date.now();
+  const sessions = buildSessions([
+    { timestamp: start, socPct: 60, currentA: -5, powerW: -64 },
+    { timestamp: start + 60_000, socPct: 59, currentA: -5, powerW: -64 },
+    { timestamp: start + 120_000, socPct: 59, currentA: 5, powerW: 64 },
+    { timestamp: start + 180_000, socPct: 60, currentA: 5, powerW: 64 },
+  ]);
+  assert.equal(sessions.length, 2);
+  assert.equal(sessions[0].mode, "charging");
+  assert.equal(sessions[1].mode, "discharging");
 });
 
 test("exports ISO timestamps and cell values as CSV", () => {

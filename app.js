@@ -9,7 +9,7 @@ import {
   decodeRunningStatus,
   mergeTelemetry,
 } from "./protocol.js";
-import { HistoryStore, analyseHistory, historyToCsv } from "./storage.js";
+import { HistoryStore, analyseHistory, analyseRange, historyToCsv } from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -28,7 +28,9 @@ let allowAutomaticReconnect = true;
 let connectionInProgress = false;
 let chartMetric = "usage";
 let chartRangeHours = 24;
+let analyticsRangeHours = 24;
 let toastTimer = null;
+let pendingExportCsv = "";
 
 class ProtocolError extends Error {}
 
@@ -323,6 +325,8 @@ function bindEvents() {
   $("#details-button").addEventListener("click", () => $("#details-dialog").showModal());
   $("#forget-button").addEventListener("click", forgetBattery);
   $("#export-button").addEventListener("click", exportHistory);
+  $("#copy-export-button").addEventListener("click", copyExportCsv);
+  $("#download-export-button").addEventListener("click", downloadExportCsv);
 
   $$("[data-metric]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -337,6 +341,14 @@ function bindEvents() {
       chartRangeHours = Number(button.dataset.range);
       $$("[data-range]").forEach((item) => item.classList.toggle("active", item === button));
       drawChart();
+    });
+  });
+
+  $$("[data-analytics-range]").forEach((button) => {
+    button.addEventListener("click", () => {
+      analyticsRangeHours = Number(button.dataset.analyticsRange);
+      $$("[data-analytics-range]").forEach((item) => item.classList.toggle("active", item === button));
+      renderDetailedAnalytics();
     });
   });
 
@@ -459,6 +471,7 @@ function setConnectionState(state, detail) {
   chip.querySelector("span").textContent = titleCase(state);
   $("#dialog-state").textContent = detail || titleCase(state);
   const button = $("#connect-button");
+  button.classList.toggle("button-connected", state === "connected");
 
   if (state === "connected") {
     $("#connection-error").hidden = true;
@@ -592,21 +605,208 @@ function renderHistory() {
       : "Not reached";
   $("#export-button").disabled = historySamples.length === 0;
   drawChart();
+  renderDetailedAnalytics();
 }
 
-function exportHistory() {
+async function exportHistory() {
   if (!historySamples.length) return;
-  const blob = new Blob([historyToCsv(historySamples)], { type: "text/csv;charset=utf-8" });
+  pendingExportCsv = historyToCsv(historySamples);
+  const stamp = new Date().toISOString().slice(0, 10);
+  try {
+    if (typeof File === "function" && typeof navigator.share === "function") {
+      const file = new File([pendingExportCsv], `gentai-battery-history-${stamp}.csv`, { type: "text/csv" });
+      const canShareFile = typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
+      if (!canShareFile) throw new Error("This browser cannot share CSV files");
+      await navigator.share({
+        title: "Gentai battery history",
+        text: `${historySamples.length} locally recorded battery readings`,
+        files: [file],
+      });
+      showToast("CSV opened in the iPad share sheet. Choose Save to Files to keep it locally.");
+      return;
+    }
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    console.warn("File sharing was unavailable", error);
+  }
+
+  openExportFallback();
+}
+
+function openExportFallback() {
+  $("#export-text").value = pendingExportCsv;
+  $("#export-dialog").showModal();
+}
+
+async function copyExportCsv() {
+  if (!pendingExportCsv) return;
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(pendingExportCsv);
+    else {
+      const textarea = $("#export-text");
+      textarea.focus();
+      textarea.select();
+      if (!document.execCommand("copy")) throw new Error("Copy command was rejected");
+    }
+    showToast("CSV copied. Paste it into Numbers, Notes, or another app.");
+  } catch (error) {
+    showToast(`Automatic copy failed. Select the CSV text and choose Copy. ${error.message}`);
+  }
+}
+
+function downloadExportCsv() {
+  if (!pendingExportCsv) return;
+  const blob = new Blob([pendingExportCsv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   link.href = url;
   link.download = `gentai-battery-history-${stamp}.csv`;
+  link.target = "_blank";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2_000);
-  showToast(`Exported ${historySamples.length} locally saved readings.`);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  showToast("Download requested. If Bluefy blocks it, use Copy CSV instead.");
+}
+
+function renderDetailedAnalytics() {
+  const end = Date.now();
+  const start = end - analyticsRangeHours * 3_600_000;
+  const analytics = analyseRange(historySamples, start, end);
+  $("#range-used").textContent = `${formatNumber(analytics.usedWh, 1)} Wh`;
+  $("#range-charged").textContent = `${formatNumber(analytics.chargedWh, 1)} Wh`;
+  $("#range-runtime").textContent = formatDurationMs(analytics.dischargingMs);
+  $("#range-lowest-soc").textContent = analytics.lowestSocPct === null ? "—" : `${formatNumber(analytics.lowestSocPct, 0)}%`;
+  $("#range-lowest-time").textContent = analytics.lowestSocAt ? `at ${formatRangeTimestamp(analytics.lowestSocAt)}` : "No readings";
+  drawEnergyChart(analytics);
+  drawHourlyChart(analytics);
+  renderSessions(analytics.sessions);
+}
+
+function drawEnergyChart(analytics) {
+  const { canvas, ctx, width, height } = prepareCanvas("#energy-chart");
+  if (!canvas) return;
+  const points = analytics.cumulative;
+  $("#energy-chart-empty").hidden = points.length >= 2;
+  ctx.clearRect(0, 0, width, height);
+  if (points.length < 2) return;
+
+  const padding = { top: 12, right: 8, bottom: 22, left: 8 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const firstTime = points[0].timestamp;
+  const lastTime = Math.max(points.at(-1).timestamp, firstTime + 1);
+  const maxEnergy = Math.max(1, ...points.flatMap((point) => [point.usedWh, point.chargedWh]));
+  drawCanvasGrid(ctx, width, height, padding);
+
+  const xFor = (timestamp) => padding.left + ((timestamp - firstTime) / (lastTime - firstTime)) * plotWidth;
+  const yFor = (value) => padding.top + plotHeight - (value / maxEnergy) * plotHeight;
+  drawCanvasSeries(ctx, points, (point) => xFor(point.timestamp), (point) => yFor(point.usedWh), "#ffc857");
+  drawCanvasSeries(ctx, points, (point) => xFor(point.timestamp), (point) => yFor(point.chargedWh), "#34d7cb");
+
+  ctx.fillStyle = "#738c93";
+  ctx.font = "10px -apple-system, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(formatRangeTimestamp(firstTime), padding.left, height - 3);
+  ctx.textAlign = "right";
+  ctx.fillText(`${formatNumber(maxEnergy, 0)} Wh`, width - padding.right, 10);
+  ctx.fillText(formatRangeTimestamp(lastTime), width - padding.right, height - 3);
+}
+
+function drawHourlyChart(analytics) {
+  const { canvas, ctx, width, height } = prepareCanvas("#hourly-chart");
+  if (!canvas) return;
+  const maxEnergy = Math.max(0, ...analytics.hourly.flatMap((hour) => [hour.usedWh, hour.chargedWh]));
+  $("#hourly-chart-empty").hidden = maxEnergy > 0;
+  ctx.clearRect(0, 0, width, height);
+  if (maxEnergy <= 0) return;
+
+  const padding = { top: 12, right: 6, bottom: 22, left: 6 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  drawCanvasGrid(ctx, width, height, padding);
+  const groupWidth = plotWidth / 24;
+  const barWidth = Math.max(2, groupWidth * 0.3);
+
+  analytics.hourly.forEach((hour, index) => {
+    const center = padding.left + groupWidth * index + groupWidth / 2;
+    const usedHeight = (hour.usedWh / maxEnergy) * plotHeight;
+    const chargedHeight = (hour.chargedWh / maxEnergy) * plotHeight;
+    ctx.fillStyle = "#ffc857";
+    ctx.fillRect(center - barWidth - 1, padding.top + plotHeight - usedHeight, barWidth, usedHeight);
+    ctx.fillStyle = "#34d7cb";
+    ctx.fillRect(center + 1, padding.top + plotHeight - chargedHeight, barWidth, chargedHeight);
+  });
+
+  ctx.fillStyle = "#738c93";
+  ctx.font = "9px -apple-system, sans-serif";
+  ctx.textAlign = "center";
+  [0, 4, 8, 12, 16, 20, 23].forEach((hour) => {
+    const x = padding.left + groupWidth * hour + groupWidth / 2;
+    ctx.fillText(hourLabel(hour), x, height - 3);
+  });
+  ctx.textAlign = "right";
+  ctx.fillText(`${formatNumber(maxEnergy, 0)} Wh`, width - padding.right, 10);
+}
+
+function renderSessions(sessions) {
+  const rows = sessions.slice(0, 12);
+  $("#sessions-body").innerHTML = rows.length
+    ? rows.map((session) => {
+        const change = `${session.socChangePct > 0 ? "+" : ""}${formatNumber(session.socChangePct, 0)}%`;
+        return `<tr>
+          <td><span class="session-type ${session.mode}">${titleCase(session.mode)}</span></td>
+          <td>${formatRangeTimestamp(session.startTimestamp)}</td>
+          <td>${formatDurationMs(session.durationMs)}</td>
+          <td>${change}</td>
+          <td>${formatNumber(session.averageW, 0)} W</td>
+          <td>${formatNumber(session.peakW, 0)} W</td>
+          <td>${formatNumber(session.energyWh, 1)} Wh</td>
+        </tr>`;
+      }).join("")
+    : '<tr><td colspan="7" class="empty-cell">Sessions will appear after at least two continuous readings.</td></tr>';
+}
+
+function prepareCanvas(selector) {
+  const canvas = $(selector);
+  if (!canvas) return { canvas: null };
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return { canvas: null };
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(rect.height * ratio);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return { canvas, ctx, width: rect.width, height: rect.height };
+}
+
+function drawCanvasGrid(ctx, width, height, padding) {
+  const plotHeight = height - padding.top - padding.bottom;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(167, 211, 220, 0.10)";
+  for (let row = 0; row <= 4; row += 1) {
+    const y = padding.top + (plotHeight * row) / 4;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+  }
+}
+
+function drawCanvasSeries(ctx, points, xFor, yFor, color) {
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = xFor(point);
+    const y = yFor(point);
+    if (index === 0 || point.gap) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
 }
 
 function drawChart() {
@@ -703,8 +903,17 @@ function chartConfiguration(metric) {
 }
 
 function setupChartResize() {
-  if ("ResizeObserver" in window) new ResizeObserver(drawChart).observe($(".chart-wrap"));
-  else window.addEventListener("resize", drawChart);
+  const redraw = () => {
+    drawChart();
+    renderDetailedAnalytics();
+  };
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(redraw);
+    observer.observe($(".chart-wrap"));
+    $$(".analytics-canvas-wrap").forEach((element) => observer.observe(element));
+  } else {
+    window.addEventListener("resize", redraw);
+  }
 }
 
 function preventScreenDimming() {
@@ -774,12 +983,36 @@ function formatDuration(hours) {
   return wholeHours ? `${wholeHours}h ${minutes}m` : `${minutes}m`;
 }
 
+function formatDurationMs(milliseconds) {
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return "—";
+  const totalMinutes = Math.round(milliseconds / 60_000);
+  const days = Math.floor(totalMinutes / 1_440);
+  const hours = Math.floor((totalMinutes % 1_440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days) return `${days}d ${hours}h`;
+  if (hours) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 function formatTime(timestamp) {
   return new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function formatDateTime(timestamp) {
   return new Date(timestamp).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatRangeTimestamp(timestamp) {
+  if (analyticsRangeHours > 24) {
+    return new Date(timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+  return formatTime(timestamp);
+}
+
+function hourLabel(hour) {
+  if (hour === 0) return "12a";
+  if (hour === 12) return "12p";
+  return hour < 12 ? `${hour}a` : `${hour - 12}p`;
 }
 
 function formatRelative(timestamp) {

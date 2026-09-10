@@ -137,6 +137,110 @@ export function findPeakUsageWindow(samples, windowMs) {
   return best;
 }
 
+export function analyseRange(allSamples, startTimestamp, endTimestamp = Date.now()) {
+  const samples = allSamples
+    .filter((sample) => sample.timestamp >= startTimestamp && sample.timestamp <= endTimestamp)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour, usedWh: 0, chargedWh: 0 }));
+  const cumulative = [];
+  let usedWh = 0;
+  let chargedWh = 0;
+  let dischargingMs = 0;
+  let chargingMs = 0;
+
+  if (samples.length) cumulative.push({ timestamp: samples[0].timestamp, usedWh: 0, chargedWh: 0 });
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = samples[index - 1];
+    const current = samples[index];
+    const elapsedMs = current.timestamp - previous.timestamp;
+    if (elapsedMs <= 0 || elapsedMs > 5 * 60_000) {
+      cumulative.push({ timestamp: current.timestamp, usedWh, chargedWh, gap: true });
+      continue;
+    }
+
+    const elapsedHours = elapsedMs / 3_600_000;
+    const intervalUsedWh = (Math.max(0, -previous.powerW) + Math.max(0, -current.powerW)) * 0.5 * elapsedHours;
+    const intervalChargedWh = (Math.max(0, previous.powerW) + Math.max(0, current.powerW)) * 0.5 * elapsedHours;
+    usedWh += intervalUsedWh;
+    chargedWh += intervalChargedWh;
+    const hour = new Date(current.timestamp).getHours();
+    hourly[hour].usedWh += intervalUsedWh;
+    hourly[hour].chargedWh += intervalChargedWh;
+
+    const averageCurrent = (previous.currentA + current.currentA) / 2;
+    if (averageCurrent < -0.15) dischargingMs += elapsedMs;
+    else if (averageCurrent > 0.15) chargingMs += elapsedMs;
+    cumulative.push({ timestamp: current.timestamp, usedWh, chargedWh });
+  }
+
+  const lowest = samples.reduce((result, sample) => (!result || sample.socPct < result.socPct ? sample : result), null);
+  return {
+    samples,
+    usedWh,
+    chargedWh,
+    dischargingMs,
+    chargingMs,
+    lowestSocPct: lowest?.socPct ?? null,
+    lowestSocAt: lowest?.timestamp ?? null,
+    hourly,
+    cumulative,
+    sessions: buildSessions(samples),
+  };
+}
+
+export function buildSessions(samples) {
+  const ordered = [...samples].sort((a, b) => a.timestamp - b.timestamp);
+  const sessions = [];
+  let session = null;
+  let previous = null;
+
+  const finish = () => {
+    if (session && session.endTimestamp > session.startTimestamp) {
+      sessions.push({
+        ...session,
+        durationMs: session.endTimestamp - session.startTimestamp,
+        socChangePct: session.endSocPct - session.startSocPct,
+        averageW: session.sampleCount ? session.sumW / session.sampleCount : 0,
+      });
+    }
+    session = null;
+  };
+
+  ordered.forEach((sample) => {
+    const mode = sample.currentA < -0.15 ? "discharging" : sample.currentA > 0.15 ? "charging" : "idle";
+    const gap = previous && sample.timestamp - previous.timestamp > 5 * 60_000;
+    if (gap || mode === "idle" || (session && session.mode !== mode)) finish();
+
+    if (mode !== "idle") {
+      const absolutePower = Math.abs(sample.powerW);
+      if (!session) {
+        session = {
+          mode,
+          startTimestamp: sample.timestamp,
+          endTimestamp: sample.timestamp,
+          startSocPct: sample.socPct,
+          endSocPct: sample.socPct,
+          sumW: absolutePower,
+          sampleCount: 1,
+          peakW: absolutePower,
+          energyWh: 0,
+        };
+      } else {
+        const elapsedHours = (sample.timestamp - previous.timestamp) / 3_600_000;
+        session.energyWh += (Math.abs(previous.powerW) + absolutePower) * 0.5 * elapsedHours;
+        session.endTimestamp = sample.timestamp;
+        session.endSocPct = sample.socPct;
+        session.sumW += absolutePower;
+        session.sampleCount += 1;
+        session.peakW = Math.max(session.peakW, absolutePower);
+      }
+    }
+    previous = sample;
+  });
+  finish();
+  return sessions.sort((a, b) => b.startTimestamp - a.startTimestamp);
+}
+
 export function historyToCsv(samples) {
   const header = [
     "timestamp",
