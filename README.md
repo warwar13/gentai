@@ -2,6 +2,8 @@
 
 A static, read-only Web Bluetooth dashboard for the Gentai 12.8 V 100 Ah battery identified as `DCHE123` / `BMC1_E123`.
 
+For future maintenance, protocol details, architecture, safety invariants, and known limitations, read [PROJECT_HANDOFF.md](./PROJECT_HANDOFF.md) first.
+
 ## Battery safety boundary
 
 The battery sends telemetry only after a query is written to its BLE command characteristic. The dashboard's only BLE write function accepts a fixed allowlist of information queries:
