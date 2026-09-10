@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071016" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Gentai Battery" />
+    <title>Gentai Battery Dashboard</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="eyebrow">12.8 V · 100 Ah LiFePO₄</p>
+          <h1>Gentai Battery</h1>
+        </div>
+      </div>
+
+      <div class="connection-actions">
+        <div class="connection-copy">
+          <span id="connection-status" class="status-chip" data-state="disconnected">
+            <i></i><span>Disconnected</span>
+          </span>
+          <small id="last-updated">No readings yet</small>
+        </div>
+        <button id="connect-button" class="button button-primary" type="button">Connect battery</button>
+        <button id="details-button" class="icon-button" type="button" aria-label="Connection details">⋯</button>
+      </div>
+    </header>
+
+    <div id="browser-notice" class="browser-notice" hidden>
+      <strong>Bluetooth is unavailable in this browser.</strong>
+      Open this HTTPS page in the Bluefy app on the iPad, then tap Connect battery.
+    </div>
+
+    <main class="dashboard">
+      <section class="panel charge-panel" aria-labelledby="charge-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">State of charge</p>
+            <h2 id="charge-title">Battery level</h2>
+          </div>
+          <span id="mode-pill" class="mode-pill" data-mode="offline">Offline</span>
+        </div>
+
+        <div id="soc-gauge" class="soc-gauge" style="--soc-angle: 0deg">
+          <div class="soc-gauge-inner">
+            <strong><span id="soc-value">--</span><small>%</small></strong>
+            <span id="soc-caption">Waiting</span>
+          </div>
+        </div>
+
+        <div class="estimate">
+          <span id="estimate-label">Remaining time</span>
+          <strong id="estimate-value">—</strong>
+          <small id="estimate-clock">Connect for an estimate</small>
+        </div>
+        <div class="capacity-bar" aria-label="Battery capacity">
+          <span id="capacity-fill"></span>
+        </div>
+        <div class="capacity-labels">
+          <span id="remaining-capacity">— Ah remaining</span>
+          <span id="full-capacity">— Ah full</span>
+        </div>
+      </section>
+
+      <section class="metrics-grid" aria-label="Live measurements">
+        <article class="metric-card metric-featured">
+          <div class="metric-icon power-icon" aria-hidden="true">ϟ</div>
+          <p>Live power</p>
+          <strong><span id="power-value">—</span><small>W</small></strong>
+          <span id="power-caption">No load data</span>
+        </article>
+        <article class="metric-card">
+          <p>Pack voltage</p>
+          <strong><span id="voltage-value">—</span><small>V</small></strong>
+          <span>Across the battery</span>
+        </article>
+        <article class="metric-card">
+          <p>Current</p>
+          <strong><span id="current-value">—</span><small>A</small></strong>
+          <span id="current-caption">Signed BMS current</span>
+        </article>
+        <article class="metric-card">
+          <p>State of health</p>
+          <strong><span id="soh-value">—</span><small>%</small></strong>
+          <span>Reported by the BMS</span>
+        </article>
+        <article class="metric-card">
+          <p>Ambient</p>
+          <strong><span id="ambient-value">—</span><small>°C</small></strong>
+          <span>Battery environment</span>
+        </article>
+        <article class="metric-card">
+          <p>MOS temperature</p>
+          <strong><span id="mos-value">—</span><small>°C</small></strong>
+          <span>Power electronics</span>
+        </article>
+      </section>
+
+      <section class="panel analysis-panel" aria-labelledby="analysis-title">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Since midnight</p>
+            <h2 id="analysis-title">Today’s use</h2>
+          </div>
+          <button id="export-button" class="button button-quiet" type="button" disabled>Export CSV</button>
+        </div>
+        <div class="analysis-list">
+          <div><span>Energy used</span><strong id="energy-used">— Wh</strong></div>
+          <div><span>Capacity used</span><strong id="capacity-used">— Ah</strong></div>
+          <div><span>Net charge change</span><strong id="soc-change">—</strong></div>
+          <div><span>Peak 15-min usage</span><strong id="peak-usage">—</strong><small id="peak-time"></small></div>
+          <div class="threshold-row"><span>Reached 20%</span><strong id="twenty-time">Not reached</strong></div>
+        </div>
+        <p id="history-note" class="fine-print">History records once per minute while this screen is connected.</p>
+      </section>
+
+      <section class="panel chart-panel" aria-labelledby="chart-title">
+        <div class="chart-header">
+          <div>
+            <p class="eyebrow">Local history</p>
+            <h2 id="chart-title">Usage trend</h2>
+          </div>
+          <div class="chart-controls">
+            <div class="segmented" aria-label="Chart measurement">
+              <button type="button" class="active" data-metric="usage">Power</button>
+              <button type="button" data-metric="soc">Charge</button>
+              <button type="button" data-metric="voltage">Voltage</button>
+            </div>
+            <div class="segmented" aria-label="Chart period">
+              <button type="button" data-range="1">1h</button>
+              <button type="button" data-range="6">6h</button>
+              <button type="button" class="active" data-range="24">24h</button>
+              <button type="button" data-range="168">7d</button>
+              <button type="button" data-range="720">30d</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="history-chart" role="img" aria-label="Battery history chart"></canvas>
+          <div id="chart-empty" class="chart-empty">History will appear after the first recorded reading.</div>
+        </div>
+        <div class="chart-footer">
+          <span id="chart-min">Min —</span>
+          <span id="chart-samples">0 saved readings</span>
+          <span id="chart-max">Max —</span>
+        </div>
+      </section>
+
+      <section class="panel detail-panel" aria-labelledby="detail-title">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Pack detail</p>
+            <h2 id="detail-title">Cells & status</h2>
+          </div>
+          <span id="cycle-count" class="cycle-count">— cycles</span>
+        </div>
+
+        <div class="cell-summary">
+          <div><span>Lowest</span><strong id="cell-min">— V</strong></div>
+          <div><span>Highest</span><strong id="cell-max">— V</strong></div>
+          <div><span>Difference</span><strong id="cell-delta">— mV</strong></div>
+        </div>
+        <div id="cell-list" class="cell-list"><p>No cell readings</p></div>
+
+        <div class="probe-section">
+          <h3>Temperature probes</h3>
+          <div id="probe-list" class="probe-list"><span>—</span></div>
+        </div>
+
+        <div class="device-meta">
+          <div><span>Device</span><strong id="device-name">DCHE123</strong></div>
+          <div><span>Pack</span><strong id="pack-name">—</strong></div>
+          <div><span>Manufacturer</span><strong id="manufacturer">—</strong></div>
+          <div><span>Firmware</span><strong id="firmware">—</strong></div>
+        </div>
+      </section>
+
+      <section id="alerts-panel" class="panel alerts-panel" data-level="ok" aria-labelledby="alerts-title">
+        <div class="alert-icon" aria-hidden="true">✓</div>
+        <div>
+          <p class="eyebrow">BMS protection status</p>
+          <h2 id="alerts-title">No active warnings</h2>
+          <div id="alerts-list" class="alerts-list">The battery has not reported a protection or warning condition.</div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="details-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Bluetooth connection</p>
+            <h2>Dashboard details</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </div>
+        <dl>
+          <div><dt>Connection</dt><dd id="dialog-state">Disconnected</dd></div>
+          <div><dt>Selected device</dt><dd id="dialog-device">None</dd></div>
+          <div><dt>Last packet</dt><dd id="dialog-packet">None</dd></div>
+          <div><dt>History</dt><dd>Stored only in this browser for 30 days</dd></div>
+          <div><dt>Battery access</dt><dd>Read-query commands only; BMS controls are blocked in code</dd></div>
+        </dl>
+        <div class="dialog-actions">
+          <button id="forget-button" class="button button-danger" type="button">Forget battery on this iPad</button>
+          <button class="button button-primary" value="cancel">Done</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
