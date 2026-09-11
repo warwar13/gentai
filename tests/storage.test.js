@@ -5,6 +5,7 @@ import {
   analyseHistory,
   analyseRange,
   buildSessions,
+  capacityCurvePoints,
   capacityTestToCsv,
   findPeakUsageWindow,
   historyToCsv,
@@ -148,6 +149,20 @@ test("flags unmeasured time when a disconnected test is stopped", () => {
   assert.equal(result.missingMs, 60_000);
   assert.equal(result.hasGaps, true);
   assert.ok(result.coveragePct < 8);
+});
+
+test("builds a voltage-versus-capacity curve without bridging gaps", () => {
+  const start = Date.UTC(2026, 8, 12, 0, 0, 0);
+  const testRun = { id: "test-curve", ratedAh: 100, startedAt: start, endedAt: start + 50_000 };
+  const points = capacityCurvePoints(testRun, [
+    { timestamp: start, voltageV: 13.2, currentA: -10 },
+    { timestamp: start + 5_000, voltageV: 13.1, currentA: -10 },
+    { timestamp: start + 50_000, voltageV: 12.8, currentA: -10 },
+  ]);
+  assert.equal(points.length, 3);
+  assert.ok(points[1].capacityAh > 0);
+  assert.equal(points[2].capacityAh, points[1].capacityAh);
+  assert.equal(points[2].gap, true);
 });
 
 test("exports capacity-test metadata and high-frequency samples", () => {

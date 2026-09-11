@@ -14,6 +14,7 @@ import {
   analyseCapacityTest,
   analyseHistory,
   analyseRange,
+  capacityCurvePoints,
   capacityTestToCsv,
   historyToCsv,
 } from "./storage.js";
@@ -47,6 +48,7 @@ let activeCapacityTest = null;
 let activeCapacitySamples = [];
 let capacitySampleWrite = Promise.resolve();
 let viewedCapacityTestId = null;
+let viewedCapacitySamples = [];
 
 class ProtocolError extends Error {}
 
@@ -802,6 +804,7 @@ function renderCapacityTest() {
     const warningBox = $("#capacity-test-warnings");
     warningBox.hidden = warnings.length === 0;
     warningBox.textContent = warnings.join(" ");
+    drawCapacityCurve("#capacity-curve-chart", "#capacity-curve-empty", activeCapacityTest, activeCapacitySamples);
   }
 
   renderCapacityTestHistory();
@@ -829,7 +832,7 @@ async function handleCapacityTestHistoryAction(event) {
   const test = capacityTests.find((item) => item.id === button.dataset.testId);
   if (!test) return;
   if (button.dataset.testAction === "view") {
-    showCapacityTestResult(test);
+    await showCapacityTestResult(test);
     return;
   }
   if (button.dataset.testAction === "export") {
@@ -848,7 +851,7 @@ async function handleCapacityTestHistoryAction(event) {
   }
 }
 
-function showCapacityTestResult(test) {
+async function showCapacityTestResult(test) {
   const summary = test.summary ?? {};
   const label = capacityResultLabel(summary);
   viewedCapacityTestId = test.id;
@@ -866,6 +869,16 @@ function showCapacityTestResult(test) {
     : `${formatNumber(summary.coveragePct, 1)}% · complete capture`;
   $("#saved-test-charging").textContent = summary.hasCharging ? `${formatNumber(summary.chargedAh, 2)} Ah` : "None";
   $("#capacity-test-dialog").showModal();
+  const empty = $("#saved-capacity-curve-empty");
+  empty.hidden = false;
+  empty.textContent = "Loading discharge curve…";
+  try {
+    viewedCapacitySamples = await historyStore.capacityTestSamples(test.id);
+    requestAnimationFrame(() => drawCapacityCurve("#saved-capacity-curve-chart", "#saved-capacity-curve-empty", test, viewedCapacitySamples));
+  } catch (error) {
+    viewedCapacitySamples = [];
+    empty.textContent = `Curve unavailable: ${error.message}`;
+  }
 }
 
 function capacityResultLabel(summary) {
@@ -873,6 +886,52 @@ function capacityResultLabel(summary) {
   if (summary.hasGaps) return "Interrupted";
   if (summary.hasCharging) return "Charging detected";
   return summary.fullRange ? "Full-range" : "Partial";
+}
+
+function drawCapacityCurve(canvasSelector, emptySelector, test, samples) {
+  const prepared = prepareCanvas(canvasSelector);
+  if (!prepared.canvas) return;
+  const { ctx, width, height } = prepared;
+  const points = capacityCurvePoints(test, samples).filter((point) => Number.isFinite(point.capacityAh) && Number.isFinite(point.voltageV));
+  const maxCapacityAh = Math.max(0, ...points.map((point) => point.capacityAh));
+  const empty = $(emptySelector);
+  empty.hidden = points.length >= 2 && maxCapacityAh > 0;
+  empty.textContent = "The curve appears after discharge begins";
+  ctx.clearRect(0, 0, width, height);
+  if (points.length < 2 || maxCapacityAh <= 0) return;
+
+  const padding = { top: 18, right: 12, bottom: 23, left: 12 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  let minVoltage = Math.min(...points.map((point) => point.voltageV));
+  let maxVoltage = Math.max(...points.map((point) => point.voltageV));
+  if (minVoltage === maxVoltage) {
+    minVoltage -= 0.1;
+    maxVoltage += 0.1;
+  } else {
+    const voltagePadding = Math.max(0.03, (maxVoltage - minVoltage) * 0.08);
+    minVoltage -= voltagePadding;
+    maxVoltage += voltagePadding;
+  }
+
+  drawCanvasGrid(ctx, width, height, padding);
+  const xFor = (point) => padding.left + (point.capacityAh / maxCapacityAh) * plotWidth;
+  const yFor = (point) => padding.top + plotHeight - ((point.voltageV - minVoltage) / (maxVoltage - minVoltage)) * plotHeight;
+  drawCanvasSeries(ctx, points, xFor, yFor, "#34d7cb");
+
+  const latest = points.at(-1);
+  ctx.fillStyle = "#a8e063";
+  ctx.beginPath();
+  ctx.arc(xFor(latest), yFor(latest), 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#738c93";
+  ctx.font = "10px -apple-system, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("0 Ah", padding.left, height - 3);
+  ctx.fillText(`${formatNumber(maxVoltage, 2)} V`, padding.left, 10);
+  ctx.textAlign = "right";
+  ctx.fillText(`${formatNumber(maxCapacityAh, 2)} Ah`, width - padding.right, height - 3);
+  ctx.fillText(`${formatNumber(minVoltage, 2)} V`, width - padding.right, padding.top + plotHeight - 3);
 }
 
 async function exportCapacityTest(test) {
@@ -1206,11 +1265,15 @@ function setupChartResize() {
   const redraw = () => {
     drawChart();
     renderDetailedAnalytics();
+    if (activeCapacityTest) drawCapacityCurve("#capacity-curve-chart", "#capacity-curve-empty", activeCapacityTest, activeCapacitySamples);
+    const viewedTest = capacityTests.find((test) => test.id === viewedCapacityTestId);
+    if (viewedTest && $("#capacity-test-dialog").open) drawCapacityCurve("#saved-capacity-curve-chart", "#saved-capacity-curve-empty", viewedTest, viewedCapacitySamples);
   };
   if ("ResizeObserver" in window) {
     const observer = new ResizeObserver(redraw);
     observer.observe($(".chart-wrap"));
     $$(".analytics-canvas-wrap").forEach((element) => observer.observe(element));
+    $$(".capacity-curve-wrap").forEach((element) => observer.observe(element));
   } else {
     window.addEventListener("resize", redraw);
   }

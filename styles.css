@@ -340,11 +340,19 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .capacity-test-idle strong, .capacity-test-idle span { display: block; }
 .capacity-test-idle strong { font-size: 0.78rem; }
 .capacity-test-idle span { margin-top: 4px; color: var(--muted); font-size: 0.61rem; }
-.capacity-test-kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.capacity-test-live-layout { margin-top: 14px; display: grid; grid-template-columns: minmax(310px, 0.9fr) minmax(0, 1.45fr); gap: 10px; }
+.capacity-test-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .capacity-test-kpis article { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 12, 17, 0.42); }
 .capacity-test-kpis span, .capacity-test-kpis small { display: block; color: var(--muted); font-size: 0.56rem; }
 .capacity-test-kpis strong { display: block; margin: 6px 0 4px; color: var(--cyan); font-size: 1rem; letter-spacing: -0.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .capacity-test-warnings { margin-top: 9px; padding: 9px 11px; color: #fff0ce; background: rgba(255, 200, 87, 0.09); border: 1px solid rgba(255, 200, 87, 0.2); border-radius: 10px; font-size: 0.61rem; line-height: 1.45; }
+.capacity-curve-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 12, 17, 0.42); }
+.capacity-curve-card h3 { color: var(--text); font-size: 0.73rem; }
+.capacity-curve-card p { margin-top: 3px; color: var(--muted); font-size: 0.56rem; }
+.capacity-curve-wrap { height: 190px; margin-top: 8px; position: relative; }
+.capacity-curve-wrap canvas { width: 100%; height: 100%; display: block; }
+.saved-capacity-curve { margin: -2px 0 15px; }
+.saved-capacity-curve .capacity-curve-wrap { height: 180px; }
 .capacity-test-actions { margin-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .capacity-test-actions p { color: var(--muted); font-size: 0.6rem; line-height: 1.45; }
 .saved-tests-heading { margin-top: 17px; padding-top: 14px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); }
@@ -500,6 +508,7 @@ dialog dt { color: var(--muted); }
 dialog dd { margin: 0; text-align: right; }
 .dialog-actions { display: flex; justify-content: space-between; gap: 10px; }
 .export-dialog { width: min(680px, calc(100vw - 30px)); }
+.capacity-test-result-dialog { width: min(720px, calc(100vw - 30px)); }
 .export-help { margin: 14px 0 9px; color: var(--muted); font-size: 0.68rem; line-height: 1.5; }
 .export-dialog textarea { width: 100%; height: 240px; padding: 10px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; color: #cbd8da; background: #061016; font: 0.58rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .export-dialog .dialog-actions { margin-top: 10px; justify-content: flex-end; }
@@ -532,6 +541,7 @@ dialog dd { margin: 0; text-align: right; }
     grid-template-areas: "charge metrics" "capacity capacity" "analysis analysis" "detail detail" "alerts alerts" "chart chart" "analytics analytics";
   }
   .analysis-list { grid-template-columns: repeat(2, 1fr); column-gap: 18px; }
+  .capacity-test-live-layout { grid-template-columns: 1fr; }
   .capacity-test-kpis { grid-template-columns: repeat(3, 1fr); }
   .saved-test { grid-template-columns: 1.4fr repeat(2, 0.7fr) auto; }
   .saved-test-metric:nth-of-type(3), .saved-test-metric:nth-of-type(4) { display: none; }

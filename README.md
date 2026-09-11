@@ -56,7 +56,7 @@ One reading is stored locally each minute while the page is open and connected. 
 
 ### Capacity testing and battery-side power
 
-The **Battery DC power** card acts as a software wattmeter by multiplying the BMS-reported pack voltage and current. The **Capacity test** panel records every telemetry poll, roughly once every five seconds, between a manual Start and Stop. It reports discharged Ah, delivered Wh, percentage of the battery's fixed 100 Ah rating, average voltage, average and peak power, SOC range, and recording coverage. Start at 95% or above and finish at 5% or below for the dashboard to label the result full-range.
+The **Battery DC power** card acts as a software wattmeter by multiplying the BMS-reported pack voltage and current. The **Capacity test** panel records every telemetry poll, roughly once every five seconds, between a manual Start and Stop. It reports discharged Ah, delivered Wh, percentage of the battery's fixed 100 Ah rating, average voltage, average and peak power, SOC range, and recording coverage. Its live discharge curve plots pack voltage against measured Ah so voltage sag and the final cutoff knee are easy to see. Start at 95% or above and finish at 5% or below for the dashboard to label the result full-range.
 
 Capacity tests and their raw readings are retained separately from ordinary 30-day history until manually deleted. Tests resume after a reload or reconnect, but intervals longer than 30 seconds are marked as missing and excluded rather than estimated. Charging detected during a test is recorded separately and flagged. Test-specific CSV files can be exported from each saved result.
 

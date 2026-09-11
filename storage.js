@@ -218,6 +218,29 @@ export function analyseCapacityTest(test, allSamples, now = Date.now()) {
   };
 }
 
+export function capacityCurvePoints(test, allSamples) {
+  const endTimestamp = test.endedAt ?? Number.POSITIVE_INFINITY;
+  const samples = allSamples
+    .filter((sample) => sample.timestamp >= test.startedAt && sample.timestamp <= endTimestamp)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (!samples.length) return [];
+
+  let capacityAh = 0;
+  const points = [{ timestamp: samples[0].timestamp, capacityAh, voltageV: samples[0].voltageV, gap: false }];
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = samples[index - 1];
+    const current = samples[index];
+    const elapsedMs = current.timestamp - previous.timestamp;
+    const gap = elapsedMs <= 0 || elapsedMs > CAPACITY_SAMPLE_MAX_GAP_MS;
+    if (!gap) {
+      const averageDischargeA = (Math.max(0, -previous.currentA) + Math.max(0, -current.currentA)) / 2;
+      capacityAh += averageDischargeA * (elapsedMs / 3_600_000);
+    }
+    points.push({ timestamp: current.timestamp, capacityAh, voltageV: current.voltageV, gap });
+  }
+  return points;
+}
+
 export function capacityTestToCsv(test, samples) {
   const header = [
     "test_id",

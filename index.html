@@ -159,13 +159,22 @@
         </div>
 
         <div id="capacity-test-active" hidden>
-          <div class="capacity-test-kpis">
-            <article><span>Capacity delivered</span><strong id="test-capacity-ah">0.00 Ah</strong><small id="test-capacity-percent">0.0% of 100 Ah</small></article>
-            <article><span>Energy delivered</span><strong id="test-energy-wh">0.0 Wh</strong><small>Battery-side DC</small></article>
-            <article><span>Elapsed</span><strong id="test-elapsed">0m</strong><small id="test-soc-range">Waiting for readings</small></article>
-            <article><span>Data coverage</span><strong id="test-coverage">0%</strong><small id="test-coverage-note">Recording every poll</small></article>
-            <article><span>Average voltage</span><strong id="test-average-voltage">— V</strong><small>Wh divided by Ah</small></article>
-            <article><span>Average / peak</span><strong id="test-power-summary">— W</strong><small>While discharging</small></article>
+          <div class="capacity-test-live-layout">
+            <div class="capacity-test-kpis">
+              <article><span>Capacity delivered</span><strong id="test-capacity-ah">0.00 Ah</strong><small id="test-capacity-percent">0.0% of 100 Ah</small></article>
+              <article><span>Energy delivered</span><strong id="test-energy-wh">0.0 Wh</strong><small>Battery-side DC</small></article>
+              <article><span>Elapsed</span><strong id="test-elapsed">0m</strong><small id="test-soc-range">Waiting for readings</small></article>
+              <article><span>Data coverage</span><strong id="test-coverage">0%</strong><small id="test-coverage-note">Recording every poll</small></article>
+              <article><span>Average voltage</span><strong id="test-average-voltage">— V</strong><small>Wh divided by Ah</small></article>
+              <article><span>Average / peak</span><strong id="test-power-summary">— W</strong><small>While discharging</small></article>
+            </div>
+            <article class="capacity-curve-card">
+              <div><h3>Discharge curve</h3><p>Pack voltage versus measured capacity delivered</p></div>
+              <div class="capacity-curve-wrap">
+                <canvas id="capacity-curve-chart" aria-label="Live capacity test discharge curve"></canvas>
+                <div id="capacity-curve-empty" class="chart-empty">The curve appears after discharge begins</div>
+              </div>
+            </article>
           </div>
           <div id="capacity-test-warnings" class="capacity-test-warnings" hidden></div>
           <div class="capacity-test-actions">
@@ -328,7 +337,7 @@
       </section>
     </main>
 
-    <dialog id="capacity-test-dialog">
+    <dialog id="capacity-test-dialog" class="capacity-test-result-dialog">
       <form method="dialog">
         <div class="dialog-heading">
           <div>
@@ -348,6 +357,13 @@
           <div><dt>Coverage</dt><dd id="saved-test-coverage">—</dd></div>
           <div><dt>Charging detected</dt><dd id="saved-test-charging">—</dd></div>
         </dl>
+        <article class="capacity-curve-card saved-capacity-curve">
+          <div><h3>Discharge curve</h3><p>Pack voltage versus measured capacity delivered</p></div>
+          <div class="capacity-curve-wrap">
+            <canvas id="saved-capacity-curve-chart" aria-label="Saved capacity test discharge curve"></canvas>
+            <div id="saved-capacity-curve-empty" class="chart-empty">Not enough discharge data</div>
+          </div>
+        </article>
         <div class="dialog-actions">
           <button id="export-saved-capacity-test" class="button button-quiet" type="button">Export CSV</button>
           <button class="button button-primary" value="cancel">Done</button>
