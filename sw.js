@@ -1,4 +1,4 @@
-const CACHE_NAME = "gentai-dashboard-v4";
+const CACHE_NAME = "gentai-dashboard-v5";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyseHistory, analyseRange, buildSessions, findPeakUsageWindow, historyToCsv } from "../storage.js";
+import {
+  analyseCapacityTest,
+  analyseHistory,
+  analyseRange,
+  buildSessions,
+  capacityTestToCsv,
+  findPeakUsageWindow,
+  historyToCsv,
+} from "../storage.js";
 
 test("calculates daily usage and records the 20 percent crossing", () => {
   const now = new Date(2026, 8, 10, 12, 0, 0);
@@ -81,4 +89,85 @@ test("exports ISO timestamps and cell values as CSV", () => {
   }]);
   assert.match(csv, /2026-09-10T00:00:00.000Z/);
   assert.match(csv, /3.275,3.274,3.276,3.275/);
+});
+
+test("calculates five-second capacity-test Ah and Wh", () => {
+  const start = Date.UTC(2026, 8, 12, 0, 0, 0);
+  const testRun = { id: "test-1", ratedAh: 100, startedAt: start, endedAt: start + 10_000, startSocPct: 100 };
+  const samples = [0, 5_000, 10_000].map((offset, index) => ({
+    timestamp: start + offset,
+    socPct: index === 2 ? 5 : 100 - index,
+    currentA: -10,
+    powerW: -128,
+  }));
+  const result = analyseCapacityTest(testRun, samples, testRun.endedAt);
+  assert.ok(Math.abs(result.dischargedAh - 10 / 360) < 0.000001);
+  assert.ok(Math.abs(result.dischargedWh - 128 / 360) < 0.000001);
+  assert.ok(Math.abs(result.averageVoltageV - 12.8) < 0.000001);
+  assert.equal(result.averageW, 128);
+  assert.equal(result.coveragePct, 100);
+  assert.equal(result.fullRange, true);
+});
+
+test("excludes capacity-test gaps and reports charging separately", () => {
+  const start = Date.UTC(2026, 8, 12, 0, 0, 0);
+  const testRun = { id: "test-2", ratedAh: 100, startedAt: start, endedAt: start + 50_000, startSocPct: 90 };
+  const samples = [
+    { timestamp: start, socPct: 90, currentA: -10, powerW: -128 },
+    { timestamp: start + 40_000, socPct: 89, currentA: -10, powerW: -128 },
+    { timestamp: start + 45_000, socPct: 89, currentA: 10, powerW: 128 },
+    { timestamp: start + 50_000, socPct: 90, currentA: 10, powerW: 128 },
+  ];
+  const result = analyseCapacityTest(testRun, samples, testRun.endedAt);
+  assert.equal(result.missingMs, 40_000);
+  assert.equal(result.observedMs, 10_000);
+  assert.equal(result.coveragePct, 20);
+  assert.equal(result.hasGaps, true);
+  assert.equal(result.hasCharging, true);
+  assert.ok(result.dischargedAh > 0);
+  assert.ok(result.chargedAh > 0);
+  assert.equal(result.fullRange, false);
+});
+
+test("flags unmeasured time when a disconnected test is stopped", () => {
+  const start = Date.UTC(2026, 8, 12, 0, 0, 0);
+  const testRun = {
+    id: "test-disconnected",
+    ratedAh: 100,
+    startedAt: start,
+    endedAt: start + 5_000,
+    stoppedAt: start + 65_000,
+    startSocPct: 100,
+  };
+  const samples = [
+    { timestamp: start, socPct: 100, currentA: -10, powerW: -128 },
+    { timestamp: start + 5_000, socPct: 99, currentA: -10, powerW: -128 },
+  ];
+  const result = analyseCapacityTest(testRun, samples, testRun.stoppedAt);
+  assert.equal(result.observedMs, 5_000);
+  assert.equal(result.missingMs, 60_000);
+  assert.equal(result.hasGaps, true);
+  assert.ok(result.coveragePct < 8);
+});
+
+test("exports capacity-test metadata and high-frequency samples", () => {
+  const startedAt = Date.UTC(2026, 8, 12, 0, 0, 0);
+  const testRun = { id: "test-3", ratedAh: 100, startedAt, endedAt: startedAt + 5_000 };
+  const csv = capacityTestToCsv(testRun, [{
+    testId: testRun.id,
+    timestamp: startedAt + 5_000,
+    socPct: 99,
+    sohPct: 98,
+    voltageV: 13.1,
+    currentA: -2,
+    powerW: -26.2,
+    remainingAh: 99,
+    fullAh: 100,
+    ambientC: 24,
+    mosC: 28,
+    cellsV: [3.275, 3.274, 3.276, 3.275],
+    warningCount: 0,
+  }]);
+  assert.match(csv, /^test_id,rated_ah,test_started_at,test_ended_at,test_stopped_at,timestamp,elapsed_seconds/);
+  assert.match(csv, /test-3,100,2026-09-12T00:00:00.000Z,2026-09-12T00:00:05.000Z,,2026-09-12T00:00:05.000Z,5.0/);
 });

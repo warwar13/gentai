@@ -54,6 +54,14 @@ The dashboard explicitly disconnects its browser GATT session when its page clos
 
 One reading is stored locally each minute while the page is open and connected. Records are retained for 30 days in IndexedDB. The dashboard calculates daily Ah and Wh consumed, net charge change, the highest 15-minute average load, and the time charge crosses 20%. Its detailed section shows cumulative used versus charged energy, use by hour, lowest charge, connected load time, and individual charging/discharging sessions over 24 hours, 7 days, or 30 days.
 
+### Capacity testing and battery-side power
+
+The **Battery DC power** card acts as a software wattmeter by multiplying the BMS-reported pack voltage and current. The **Capacity test** panel records every telemetry poll, roughly once every five seconds, between a manual Start and Stop. It reports discharged Ah, delivered Wh, percentage of the battery's fixed 100 Ah rating, average voltage, average and peak power, SOC range, and recording coverage. Start at 95% or above and finish at 5% or below for the dashboard to label the result full-range.
+
+Capacity tests and their raw readings are retained separately from ordinary 30-day history until manually deleted. Tests resume after a reload or reconnect, but intervals longer than 30 seconds are marked as missing and excluded rather than estimated. Charging detected during a test is recorded separately and flagged. Test-specific CSV files can be exported from each saved result.
+
+These readings are battery-side DC measurements whose accuracy depends on the BMS sensors. They do not measure AC power after an inverter, account for inverter losses, or independently calibrate the BMS. The dashboard does not control the load or cutoff, so keep Bluefy open and connected throughout the test.
+
 **Export CSV** opens the iPad share sheet when Bluefy supports file sharing; choose **Save to Files** to keep the CSV locally. If file sharing is unavailable, the dashboard opens a fallback where the CSV can be copied or downloaded. No telemetry is uploaded.
 
 If the browser suspends Bluefy, Bluetooth is out of range, or the dashboard is closed, that interval is left as a gap. The dashboard never estimates missing usage.

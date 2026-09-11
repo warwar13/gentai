@@ -9,7 +9,14 @@ import {
   decodeRunningStatus,
   mergeTelemetry,
 } from "./protocol.js";
-import { HistoryStore, analyseHistory, analyseRange, historyToCsv } from "./storage.js";
+import {
+  HistoryStore,
+  analyseCapacityTest,
+  analyseHistory,
+  analyseRange,
+  capacityTestToCsv,
+  historyToCsv,
+} from "./storage.js";
 import { assessCellBalance, assessHealth, assessPower, assessTemperature, POWER_LIMIT_W } from "./status.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -18,6 +25,8 @@ const historyStore = new HistoryStore();
 const demoMode = new URLSearchParams(location.search).has("demo");
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const SAMPLE_INTERVAL_MS = 60_000;
+const CAPACITY_RATING_AH = 100;
+const FRESH_TELEMETRY_MS = 15_000;
 
 let historySamples = [];
 let lastSavedAt = 0;
@@ -32,6 +41,12 @@ let chartRangeHours = 24;
 let analyticsRangeHours = 24;
 let toastTimer = null;
 let pendingExportCsv = "";
+let pendingExportFilename = "gentai-battery-history.csv";
+let capacityTests = [];
+let activeCapacityTest = null;
+let activeCapacitySamples = [];
+let capacitySampleWrite = Promise.resolve();
+let viewedCapacityTestId = null;
 
 class ProtocolError extends Error {}
 
@@ -259,8 +274,10 @@ const client = new GentaiBatteryClient({
 async function initialize() {
   bindEvents();
   await loadHistory();
+  await loadCapacityTests();
   setupChartResize();
   renderHistory();
+  renderCapacityTest();
 
   if ("serviceWorker" in navigator && !demoMode) {
     navigator.serviceWorker.register("./sw.js").catch((error) => console.warn("Offline cache unavailable", error));
@@ -328,6 +345,16 @@ function bindEvents() {
   $("#export-button").addEventListener("click", exportHistory);
   $("#copy-export-button").addEventListener("click", copyExportCsv);
   $("#download-export-button").addEventListener("click", downloadExportCsv);
+  $("#start-capacity-test").addEventListener("click", startCapacityTest);
+  $("#stop-capacity-test").addEventListener("click", stopCapacityTest);
+  $("#capacity-test-history").addEventListener("click", handleCapacityTestHistoryAction);
+  $("#export-saved-capacity-test").addEventListener("click", async () => {
+    const test = capacityTests.find((item) => item.id === viewedCapacityTestId);
+    if (test) {
+      $("#capacity-test-dialog").close();
+      await exportCapacityTest(test);
+    }
+  });
 
   $$("[data-metric]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -369,6 +396,7 @@ function bindEvents() {
     if (latestTelemetry && Date.now() - latestTelemetry.timestamp > 15_000 && client.connected) {
       $("#last-updated").textContent = `Readings stale · ${formatRelative(latestTelemetry.timestamp)}`;
     }
+    renderCapacityTest();
   }, 5_000);
 }
 
@@ -485,11 +513,13 @@ function setConnectionState(state, detail) {
     button.textContent = selectedDevice ? "Reconnect" : "Connect battery";
     button.disabled = !navigator.bluetooth && !demoMode;
   }
+  renderCapacityTest();
 }
 
 async function handleTelemetry(telemetry) {
   latestTelemetry = telemetry;
   renderTelemetry(telemetry);
+  await recordCapacityTestTelemetry(telemetry);
 
   if (telemetry.timestamp - lastSavedAt >= SAMPLE_INTERVAL_MS) {
     lastSavedAt = telemetry.timestamp;
@@ -610,6 +640,253 @@ async function loadHistory() {
   }
 }
 
+async function loadCapacityTests() {
+  if (demoMode) return;
+  try {
+    capacityTests = await historyStore.capacityTests();
+    activeCapacityTest = capacityTests.find((test) => test.status === "active") ?? null;
+    activeCapacitySamples = activeCapacityTest ? await historyStore.capacityTestSamples(activeCapacityTest.id) : [];
+  } catch (error) {
+    console.warn("Capacity test history unavailable", error);
+    showToast(`Capacity test history unavailable: ${error.message}`);
+  }
+}
+
+async function startCapacityTest() {
+  if (demoMode || activeCapacityTest || !client.connected || !latestTelemetry || Date.now() - latestTelemetry.timestamp > FRESH_TELEMETRY_MS) return;
+  const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `capacity-${Date.now()}`;
+  activeCapacityTest = {
+    id,
+    status: "active",
+    deviceId: selectedDevice?.id ?? null,
+    ratedAh: CAPACITY_RATING_AH,
+    startedAt: latestTelemetry.timestamp,
+    endedAt: null,
+    startSocPct: latestTelemetry.socPct,
+    endSocPct: null,
+    createdAt: Date.now(),
+  };
+  activeCapacitySamples = [];
+  try {
+    await historyStore.putCapacityTest(activeCapacityTest);
+    const sample = await historyStore.addCapacityTestSample(id, latestTelemetry);
+    activeCapacitySamples.push(sample);
+    capacityTests = [activeCapacityTest, ...capacityTests.filter((test) => test.id !== id)];
+    renderCapacityTest();
+    showToast("Capacity test started. Keep this page open and connected.");
+  } catch (error) {
+    try {
+      await historyStore.deleteCapacityTest(id);
+    } catch {
+      // The original storage error is more useful to the user.
+    }
+    activeCapacityTest = null;
+    activeCapacitySamples = [];
+    showToast(`Could not start capacity test: ${error.message}`);
+  }
+}
+
+async function recordCapacityTestTelemetry(telemetry) {
+  if (!activeCapacityTest || demoMode) return;
+  if (activeCapacityTest.deviceId && selectedDevice?.id !== activeCapacityTest.deviceId) {
+    renderCapacityTest();
+    return;
+  }
+  const testId = activeCapacityTest.id;
+  capacitySampleWrite = capacitySampleWrite.then(async () => {
+    if (activeCapacityTest?.id !== testId) return;
+    try {
+      const sample = await historyStore.addCapacityTestSample(testId, telemetry);
+      if (activeCapacityTest?.id !== testId) return;
+      const previous = activeCapacitySamples.at(-1);
+      if (previous?.timestamp === sample.timestamp) activeCapacitySamples[activeCapacitySamples.length - 1] = sample;
+      else activeCapacitySamples.push(sample);
+      renderCapacityTest();
+    } catch (error) {
+      showToast(`Capacity test sample was not saved: ${error.message}`);
+    }
+  });
+  await capacitySampleWrite;
+}
+
+async function stopCapacityTest() {
+  if (!activeCapacityTest) return;
+  await capacitySampleWrite;
+  const finalSample = activeCapacitySamples.at(-1);
+  const completed = {
+    ...activeCapacityTest,
+    status: "completed",
+    endedAt: finalSample?.timestamp ?? activeCapacityTest.startedAt,
+    stoppedAt: Date.now(),
+    endSocPct: finalSample?.socPct ?? activeCapacityTest.startSocPct,
+  };
+  completed.summary = capacitySummaryForStorage(analyseCapacityTest(completed, activeCapacitySamples, completed.endedAt));
+  try {
+    await historyStore.putCapacityTest(completed);
+    capacityTests = capacityTests.map((test) => test.id === completed.id ? completed : test);
+    activeCapacityTest = null;
+    activeCapacitySamples = [];
+    renderCapacityTest();
+    showToast("Capacity test stopped and saved.");
+  } catch (error) {
+    showToast(`Could not stop capacity test: ${error.message}`);
+  }
+}
+
+function capacitySummaryForStorage(analysis) {
+  return {
+    sampleCount: analysis.sampleCount,
+    elapsedMs: analysis.elapsedMs,
+    observedMs: analysis.observedMs,
+    missingMs: analysis.missingMs,
+    coveragePct: analysis.coveragePct,
+    dischargedAh: analysis.dischargedAh,
+    dischargedWh: analysis.dischargedWh,
+    chargedAh: analysis.chargedAh,
+    chargedWh: analysis.chargedWh,
+    averageVoltageV: analysis.averageVoltageV,
+    averageW: analysis.averageW,
+    peakW: analysis.peakW,
+    startSocPct: analysis.startSocPct,
+    endSocPct: analysis.endSocPct,
+    fullRange: analysis.fullRange,
+    hasGaps: analysis.hasGaps,
+    hasCharging: analysis.hasCharging,
+    percentOfRated: analysis.percentOfRated,
+  };
+}
+
+function renderCapacityTest() {
+  const idle = $("#capacity-test-idle");
+  if (!idle) return;
+  const active = $("#capacity-test-active");
+  const badge = $("#capacity-test-status");
+  const startButton = $("#start-capacity-test");
+  const telemetryFresh = Boolean(latestTelemetry && Date.now() - latestTelemetry.timestamp <= FRESH_TELEMETRY_MS);
+  const canStart = !demoMode && !activeCapacityTest && client.connected && telemetryFresh;
+  startButton.disabled = !canStart;
+
+  if (demoMode) $("#capacity-test-readiness").textContent = "Capacity recording is disabled for generated demo data.";
+  else if (activeCapacityTest) $("#capacity-test-readiness").textContent = "A capacity test is already running.";
+  else if (!client.connected) $("#capacity-test-readiness").textContent = "Connect the battery to begin.";
+  else if (!telemetryFresh) $("#capacity-test-readiness").textContent = "Waiting for a fresh battery reading.";
+  else $("#capacity-test-readiness").textContent = latestTelemetry.socPct >= 95
+    ? `Ready at ${formatNumber(latestTelemetry.socPct, 0)}% charge.`
+    : `Ready at ${formatNumber(latestTelemetry.socPct, 0)}%; a full-range test should begin at 95% or above.`;
+
+  idle.hidden = Boolean(activeCapacityTest);
+  active.hidden = !activeCapacityTest;
+  if (!activeCapacityTest) {
+    badge.dataset.state = "idle";
+    badge.textContent = "Ready";
+  } else {
+    const analysis = analyseCapacityTest(activeCapacityTest, activeCapacitySamples);
+    badge.dataset.state = "active";
+    badge.textContent = "Recording";
+    $("#test-capacity-ah").textContent = `${formatNumber(analysis.dischargedAh, 2)} Ah`;
+    $("#test-capacity-percent").textContent = `${formatNumber(analysis.percentOfRated, 1)}% of ${CAPACITY_RATING_AH} Ah`;
+    $("#test-energy-wh").textContent = `${formatNumber(analysis.dischargedWh, 1)} Wh`;
+    $("#test-elapsed").textContent = analysis.elapsedMs < 60_000 ? "<1m" : formatDurationMs(analysis.elapsedMs);
+    $("#test-soc-range").textContent = analysis.endSocPct === null ? "Waiting for readings" : `${formatNumber(analysis.startSocPct, 0)}% to ${formatNumber(analysis.endSocPct, 0)}% SOC`;
+    const displayedCoverage = analysis.sampleCount === 1 && !analysis.hasGaps ? 100 : analysis.coveragePct;
+    $("#test-coverage").textContent = `${formatNumber(displayedCoverage, 1)}%`;
+    $("#test-coverage-note").textContent = analysis.hasGaps ? `${formatDurationMs(analysis.missingMs)} unmeasured` : `${analysis.sampleCount} saved readings`;
+    $("#test-average-voltage").textContent = analysis.averageVoltageV === null ? "— V" : `${formatNumber(analysis.averageVoltageV, 2)} V`;
+    $("#test-power-summary").textContent = analysis.averageW === null ? "— W" : `${formatNumber(analysis.averageW, 0)} / ${formatNumber(analysis.peakW, 0)} W`;
+    const warnings = [];
+    if (activeCapacityTest.startSocPct < 95) warnings.push(`Started at ${formatNumber(activeCapacityTest.startSocPct, 0)}%; this result will be labelled partial.`);
+    if (!client.connected) warnings.push("Battery disconnected; recording will resume after reconnection and unmeasured time will be flagged.");
+    if (analysis.hasGaps) warnings.push("A recording gap longer than 30 seconds was excluded from the totals.");
+    if (analysis.hasCharging) warnings.push("Charging was detected and is not included in delivered capacity.");
+    if (activeCapacityTest.deviceId && selectedDevice?.id && activeCapacityTest.deviceId !== selectedDevice.id) warnings.push("The connected battery is not the battery that started this test; readings are paused.");
+    const warningBox = $("#capacity-test-warnings");
+    warningBox.hidden = warnings.length === 0;
+    warningBox.textContent = warnings.join(" ");
+  }
+
+  renderCapacityTestHistory();
+}
+
+function renderCapacityTestHistory() {
+  const completed = capacityTests.filter((test) => test.status === "completed");
+  $("#capacity-test-history").innerHTML = completed.length ? completed.map((test) => {
+    const summary = test.summary ?? {};
+    const label = capacityResultLabel(summary);
+    return `<article class="saved-test">
+      <div class="saved-test-title"><strong>${escapeHtml(formatDateTime(test.startedAt))}</strong><span>${escapeHtml(label)} · ${formatNumber(summary.startSocPct, 0)}% to ${formatNumber(summary.endSocPct, 0)}%</span></div>
+      <div class="saved-test-metric"><strong>${formatNumber(summary.dischargedAh, 2)} Ah</strong><span>${formatNumber(summary.percentOfRated, 1)}% of 100 Ah</span></div>
+      <div class="saved-test-metric"><strong>${formatNumber(summary.dischargedWh, 1)} Wh</strong><span>Delivered energy</span></div>
+      <div class="saved-test-metric"><strong>${formatDurationMs(summary.elapsedMs)}</strong><span>Elapsed</span></div>
+      <div class="saved-test-metric"><strong>${formatNumber(summary.coveragePct, 1)}%</strong><span>Coverage</span></div>
+      <div class="saved-test-actions"><button class="button button-quiet" type="button" data-test-action="view" data-test-id="${escapeHtml(test.id)}">View</button><button class="button button-quiet" type="button" data-test-action="export" data-test-id="${escapeHtml(test.id)}">Export CSV</button><button class="button button-danger" type="button" data-test-action="delete" data-test-id="${escapeHtml(test.id)}">Delete</button></div>
+    </article>`;
+  }).join("") : '<p class="capacity-test-empty">No completed capacity tests yet.</p>';
+}
+
+async function handleCapacityTestHistoryAction(event) {
+  const button = event.target.closest("[data-test-action]");
+  if (!button) return;
+  const test = capacityTests.find((item) => item.id === button.dataset.testId);
+  if (!test) return;
+  if (button.dataset.testAction === "view") {
+    showCapacityTestResult(test);
+    return;
+  }
+  if (button.dataset.testAction === "export") {
+    await exportCapacityTest(test);
+    return;
+  }
+  if (button.dataset.testAction === "delete" && confirm(`Delete the capacity test from ${formatDateTime(test.startedAt)} and all of its saved readings?`)) {
+    try {
+      await historyStore.deleteCapacityTest(test.id);
+      capacityTests = capacityTests.filter((item) => item.id !== test.id);
+      renderCapacityTest();
+      showToast("Capacity test deleted from this browser.");
+    } catch (error) {
+      showToast(`Could not delete capacity test: ${error.message}`);
+    }
+  }
+}
+
+function showCapacityTestResult(test) {
+  const summary = test.summary ?? {};
+  const label = capacityResultLabel(summary);
+  viewedCapacityTestId = test.id;
+  $("#saved-test-result").textContent = label;
+  $("#saved-test-period").textContent = `${formatDateTime(test.startedAt)} · ${formatDurationMs(summary.elapsedMs)}`;
+  $("#saved-test-soc").textContent = `${formatNumber(summary.startSocPct, 0)}% to ${formatNumber(summary.endSocPct, 0)}%`;
+  $("#saved-test-capacity").textContent = `${formatNumber(summary.dischargedAh, 2)} Ah · ${formatNumber(summary.percentOfRated, 1)}% of 100 Ah`;
+  $("#saved-test-energy").textContent = `${formatNumber(summary.dischargedWh, 1)} Wh`;
+  $("#saved-test-voltage").textContent = summary.averageVoltageV === null ? "—" : `${formatNumber(summary.averageVoltageV, 2)} V`;
+  $("#saved-test-power").textContent = summary.averageW === null ? "—" : `${formatNumber(summary.averageW, 0)} / ${formatNumber(summary.peakW, 0)} W`;
+  $("#saved-test-coverage").textContent = summary.sampleCount < 2
+    ? "Insufficient readings"
+    : summary.hasGaps
+    ? `${formatNumber(summary.coveragePct, 1)}% · ${formatDurationMs(summary.missingMs)} missing`
+    : `${formatNumber(summary.coveragePct, 1)}% · complete capture`;
+  $("#saved-test-charging").textContent = summary.hasCharging ? `${formatNumber(summary.chargedAh, 2)} Ah` : "None";
+  $("#capacity-test-dialog").showModal();
+}
+
+function capacityResultLabel(summary) {
+  if ((summary.sampleCount ?? 0) < 2) return "Too short";
+  if (summary.hasGaps) return "Interrupted";
+  if (summary.hasCharging) return "Charging detected";
+  return summary.fullRange ? "Full-range" : "Partial";
+}
+
+async function exportCapacityTest(test) {
+  try {
+    const samples = await historyStore.capacityTestSamples(test.id);
+    const stamp = new Date(test.startedAt).toISOString().replace(/[:.]/g, "-");
+    pendingExportFilename = `gentai-capacity-test-${stamp}.csv`;
+    pendingExportCsv = capacityTestToCsv(test, samples);
+    await shareCsv(pendingExportFilename, "Gentai capacity test", `${samples.length} capacity-test readings`);
+  } catch (error) {
+    showToast(`Could not export capacity test: ${error.message}`);
+  }
+}
+
 function renderHistory() {
   const analysis = analyseHistory(historySamples);
   $("#energy-used").textContent = `${formatNumber(analysis.dischargedWh, 1)} Wh`;
@@ -631,14 +908,19 @@ async function exportHistory() {
   if (!historySamples.length) return;
   pendingExportCsv = historyToCsv(historySamples);
   const stamp = new Date().toISOString().slice(0, 10);
+  pendingExportFilename = `gentai-battery-history-${stamp}.csv`;
+  await shareCsv(pendingExportFilename, "Gentai battery history", `${historySamples.length} locally recorded battery readings`);
+}
+
+async function shareCsv(filename, title, description) {
   try {
     if (typeof File === "function" && typeof navigator.share === "function") {
-      const file = new File([pendingExportCsv], `gentai-battery-history-${stamp}.csv`, { type: "text/csv" });
+      const file = new File([pendingExportCsv], filename, { type: "text/csv" });
       const canShareFile = typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
       if (!canShareFile) throw new Error("This browser cannot share CSV files");
       await navigator.share({
-        title: "Gentai battery history",
-        text: `${historySamples.length} locally recorded battery readings`,
+        title,
+        text: description,
         files: [file],
       });
       showToast("CSV opened in the iPad share sheet. Choose Save to Files to keep it locally.");
@@ -678,9 +960,8 @@ function downloadExportCsv() {
   const blob = new Blob([pendingExportCsv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const stamp = new Date().toISOString().slice(0, 10);
   link.href = url;
-  link.download = `gentai-battery-history-${stamp}.csv`;
+  link.download = pendingExportFilename;
   link.target = "_blank";
   document.body.appendChild(link);
   link.click();

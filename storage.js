@@ -1,7 +1,10 @@
 const DB_NAME = "gentai-battery-dashboard";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "telemetry";
+const CAPACITY_TEST_STORE_NAME = "capacityTests";
+const CAPACITY_SAMPLE_STORE_NAME = "capacityTestSamples";
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const CAPACITY_SAMPLE_MAX_GAP_MS = 30_000;
 
 export class HistoryStore {
   constructor() {
@@ -17,6 +20,13 @@ export class HistoryStore {
           const db = request.result;
           if (!db.objectStoreNames.contains(STORE_NAME)) {
             db.createObjectStore(STORE_NAME, { keyPath: "timestamp" });
+          }
+          if (!db.objectStoreNames.contains(CAPACITY_TEST_STORE_NAME)) {
+            db.createObjectStore(CAPACITY_TEST_STORE_NAME, { keyPath: "id" });
+          }
+          if (!db.objectStoreNames.contains(CAPACITY_SAMPLE_STORE_NAME)) {
+            const samples = db.createObjectStore(CAPACITY_SAMPLE_STORE_NAME, { keyPath: ["testId", "timestamp"] });
+            samples.createIndex("byTestId", "testId", { unique: false });
           }
         };
         request.onsuccess = () => resolve(request.result);
@@ -48,6 +58,59 @@ export class HistoryStore {
     const cutoff = now - RETENTION_MS;
     await transactionPromise(db, "readwrite", (store) => store.delete(IDBKeyRange.upperBound(cutoff)));
   }
+
+  async putCapacityTest(test) {
+    const db = await this.open();
+    await storeTransactionPromise(db, CAPACITY_TEST_STORE_NAME, "readwrite", (store) => store.put(test));
+    return test;
+  }
+
+  async capacityTests() {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CAPACITY_TEST_STORE_NAME, "readonly");
+      const request = tx.objectStore(CAPACITY_TEST_STORE_NAME).getAll();
+      request.onsuccess = () => resolve(request.result.sort((a, b) => b.startedAt - a.startedAt));
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async addCapacityTestSample(testId, telemetry) {
+    const sample = toCapacityTestSample(testId, telemetry);
+    const db = await this.open();
+    await storeTransactionPromise(db, CAPACITY_SAMPLE_STORE_NAME, "readwrite", (store) => store.put(sample));
+    return sample;
+  }
+
+  async capacityTestSamples(testId) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CAPACITY_SAMPLE_STORE_NAME, "readonly");
+      const index = tx.objectStore(CAPACITY_SAMPLE_STORE_NAME).index("byTestId");
+      const request = index.getAll(IDBKeyRange.only(testId));
+      request.onsuccess = () => resolve(request.result.sort((a, b) => a.timestamp - b.timestamp));
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteCapacityTest(testId) {
+    const db = await this.open();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction([CAPACITY_TEST_STORE_NAME, CAPACITY_SAMPLE_STORE_NAME], "readwrite");
+      tx.objectStore(CAPACITY_TEST_STORE_NAME).delete(testId);
+      const sampleStore = tx.objectStore(CAPACITY_SAMPLE_STORE_NAME);
+      const cursorRequest = sampleStore.index("byTestId").openKeyCursor(IDBKeyRange.only(testId));
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) return;
+        sampleStore.delete(cursor.primaryKey);
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Capacity test deletion was aborted"));
+    });
+  }
 }
 
 export function toHistorySample(telemetry) {
@@ -65,6 +128,143 @@ export function toHistorySample(telemetry) {
     cellsV: telemetry.cellsV ?? [],
     warningCount: telemetry.warnings?.length ?? 0,
   };
+}
+
+export function toCapacityTestSample(testId, telemetry) {
+  return { testId, ...toHistorySample(telemetry) };
+}
+
+export function analyseCapacityTest(test, allSamples, now = Date.now()) {
+  const endTimestamp = test.endedAt ?? now;
+  const observationEndTimestamp = test.stoppedAt ?? endTimestamp;
+  const samples = allSamples
+    .filter((sample) => sample.timestamp >= test.startedAt && sample.timestamp <= endTimestamp)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  let dischargedAh = 0;
+  let dischargedWh = 0;
+  let chargedAh = 0;
+  let chargedWh = 0;
+  let observedMs = 0;
+  let missingMs = 0;
+  let dischargingMs = 0;
+  let peakW = 0;
+
+  samples.forEach((sample) => {
+    peakW = Math.max(peakW, Math.max(0, -sample.powerW));
+  });
+
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = samples[index - 1];
+    const current = samples[index];
+    const elapsedMs = current.timestamp - previous.timestamp;
+    if (elapsedMs <= 0) continue;
+    if (elapsedMs > CAPACITY_SAMPLE_MAX_GAP_MS) {
+      missingMs += elapsedMs;
+      continue;
+    }
+
+    const elapsedHours = elapsedMs / 3_600_000;
+    const averageDischargeA = (Math.max(0, -previous.currentA) + Math.max(0, -current.currentA)) / 2;
+    const averageDischargeW = (Math.max(0, -previous.powerW) + Math.max(0, -current.powerW)) / 2;
+    const averageChargeA = (Math.max(0, previous.currentA) + Math.max(0, current.currentA)) / 2;
+    const averageChargeW = (Math.max(0, previous.powerW) + Math.max(0, current.powerW)) / 2;
+    dischargedAh += averageDischargeA * elapsedHours;
+    dischargedWh += averageDischargeW * elapsedHours;
+    chargedAh += averageChargeA * elapsedHours;
+    chargedWh += averageChargeW * elapsedHours;
+    observedMs += elapsedMs;
+    if (averageDischargeA > 0.15) dischargingMs += elapsedMs;
+  }
+
+  const first = samples[0] ?? null;
+  const last = samples.at(-1) ?? null;
+  if (last && observationEndTimestamp - last.timestamp > CAPACITY_SAMPLE_MAX_GAP_MS) {
+    missingMs += observationEndTimestamp - last.timestamp;
+  }
+  const elapsedMs = Math.max(0, observationEndTimestamp - test.startedAt);
+  const coveredSpanMs = observedMs + missingMs;
+  const coveragePct = coveredSpanMs > 0 ? (observedMs / coveredSpanMs) * 100 : 0;
+  const startSocPct = first?.socPct ?? test.startSocPct ?? null;
+  const endSocPct = last?.socPct ?? test.endSocPct ?? null;
+  const fullRange = Boolean(
+    test.endedAt &&
+    Number.isFinite(startSocPct) &&
+    Number.isFinite(endSocPct) &&
+    startSocPct >= 95 &&
+    endSocPct <= 5,
+  );
+
+  return {
+    sampleCount: samples.length,
+    elapsedMs,
+    observedMs,
+    missingMs,
+    coveragePct,
+    dischargedAh,
+    dischargedWh,
+    chargedAh,
+    chargedWh,
+    averageVoltageV: dischargedAh > 0 ? dischargedWh / dischargedAh : null,
+    averageW: dischargingMs > 0 ? dischargedWh / (dischargingMs / 3_600_000) : null,
+    peakW,
+    startSocPct,
+    endSocPct,
+    fullRange,
+    hasGaps: missingMs > 0,
+    hasCharging: chargedAh >= 0.01,
+    percentOfRated: test.ratedAh > 0 ? (dischargedAh / test.ratedAh) * 100 : null,
+    firstTimestamp: first?.timestamp ?? null,
+    lastTimestamp: last?.timestamp ?? null,
+  };
+}
+
+export function capacityTestToCsv(test, samples) {
+  const header = [
+    "test_id",
+    "rated_ah",
+    "test_started_at",
+    "test_ended_at",
+    "test_stopped_at",
+    "timestamp",
+    "elapsed_seconds",
+    "soc_percent",
+    "soh_percent",
+    "voltage_v",
+    "current_a",
+    "power_w",
+    "remaining_ah",
+    "full_ah",
+    "ambient_c",
+    "mos_c",
+    "cell_1_v",
+    "cell_2_v",
+    "cell_3_v",
+    "cell_4_v",
+    "warning_count",
+  ];
+  const ordered = [...samples].sort((a, b) => a.timestamp - b.timestamp);
+  const rows = ordered.map((sample) => [
+    test.id,
+    test.ratedAh,
+    new Date(test.startedAt).toISOString(),
+    test.endedAt ? new Date(test.endedAt).toISOString() : "",
+    test.stoppedAt ? new Date(test.stoppedAt).toISOString() : "",
+    new Date(sample.timestamp).toISOString(),
+    ((sample.timestamp - test.startedAt) / 1000).toFixed(1),
+    sample.socPct,
+    sample.sohPct,
+    sample.voltageV,
+    sample.currentA,
+    sample.powerW,
+    sample.remainingAh,
+    sample.fullAh,
+    sample.ambientC ?? "",
+    sample.mosC ?? "",
+    ...(sample.cellsV ?? []).slice(0, 4),
+    ...Array(Math.max(0, 4 - (sample.cellsV?.length ?? 0))).fill(""),
+    sample.warningCount,
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
 export function analyseHistory(allSamples, now = new Date()) {
@@ -285,9 +485,13 @@ function csvCell(value) {
 }
 
 function transactionPromise(db, mode, action) {
+  return storeTransactionPromise(db, STORE_NAME, mode, action);
+}
+
+function storeTransactionPromise(db, storeName, mode, action) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode);
-    action(tx.objectStore(STORE_NAME));
+    const tx = db.transaction(storeName, mode);
+    action(tx.objectStore(storeName));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error ?? new Error("History transaction was aborted"));

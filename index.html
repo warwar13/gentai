@@ -92,7 +92,7 @@
           <div class="metric-symbol metric-symbol-power" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M13.5 2 6 13h5l-.5 9L18 10h-5l.5-8Z"></path></svg>
           </div>
-          <p>Live power</p>
+          <p>Battery DC power</p>
           <strong><span id="power-value">—</span><small>W</small></strong>
           <span id="power-caption" class="metric-status">Waiting</span>
           <div class="metric-meter" aria-hidden="true"><span id="power-meter"></span></div>
@@ -138,6 +138,48 @@
           <strong><span id="mos-value">—</span><small>°C</small></strong>
           <span id="mos-caption" class="metric-status">Waiting</span>
         </article>
+      </section>
+
+      <section class="panel capacity-test-panel" aria-labelledby="capacity-test-title">
+        <div class="capacity-test-heading">
+          <div>
+            <p class="eyebrow">5-second BMS recording</p>
+            <h2 id="capacity-test-title">Capacity test</h2>
+            <p>Measure battery-side output from a full charge to your chosen cutoff. Keep this page open and connected throughout the test.</p>
+          </div>
+          <span id="capacity-test-status" class="capacity-test-status" data-state="idle">Ready</span>
+        </div>
+
+        <div id="capacity-test-idle" class="capacity-test-idle">
+          <div>
+            <strong>100 Ah rated capacity</strong>
+            <span id="capacity-test-readiness">Connect the battery to begin.</span>
+          </div>
+          <button id="start-capacity-test" class="button button-primary" type="button" disabled>Start capacity test</button>
+        </div>
+
+        <div id="capacity-test-active" hidden>
+          <div class="capacity-test-kpis">
+            <article><span>Capacity delivered</span><strong id="test-capacity-ah">0.00 Ah</strong><small id="test-capacity-percent">0.0% of 100 Ah</small></article>
+            <article><span>Energy delivered</span><strong id="test-energy-wh">0.0 Wh</strong><small>Battery-side DC</small></article>
+            <article><span>Elapsed</span><strong id="test-elapsed">0m</strong><small id="test-soc-range">Waiting for readings</small></article>
+            <article><span>Data coverage</span><strong id="test-coverage">0%</strong><small id="test-coverage-note">Recording every poll</small></article>
+            <article><span>Average voltage</span><strong id="test-average-voltage">— V</strong><small>Wh divided by Ah</small></article>
+            <article><span>Average / peak</span><strong id="test-power-summary">— W</strong><small>While discharging</small></article>
+          </div>
+          <div id="capacity-test-warnings" class="capacity-test-warnings" hidden></div>
+          <div class="capacity-test-actions">
+            <p id="capacity-test-running-note">The dashboard records each BMS poll. It does not control the load or battery cutoff.</p>
+            <button id="stop-capacity-test" class="button button-danger" type="button">Stop and save test</button>
+          </div>
+        </div>
+
+        <div class="saved-tests-heading">
+          <div><h3>Saved tests</h3><p>Results and raw readings stay in this browser until deleted.</p></div>
+        </div>
+        <div id="capacity-test-history" class="capacity-test-history">
+          <p class="capacity-test-empty">No completed capacity tests yet.</p>
+        </div>
       </section>
 
       <section class="panel analysis-panel" aria-labelledby="analysis-title">
@@ -286,6 +328,33 @@
       </section>
     </main>
 
+    <dialog id="capacity-test-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Saved measurement</p>
+            <h2>Capacity test result</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </div>
+        <dl>
+          <div><dt>Result</dt><dd id="saved-test-result">—</dd></div>
+          <div><dt>Test period</dt><dd id="saved-test-period">—</dd></div>
+          <div><dt>SOC range</dt><dd id="saved-test-soc">—</dd></div>
+          <div><dt>Capacity</dt><dd id="saved-test-capacity">—</dd></div>
+          <div><dt>Energy</dt><dd id="saved-test-energy">—</dd></div>
+          <div><dt>Average voltage</dt><dd id="saved-test-voltage">—</dd></div>
+          <div><dt>Average / peak</dt><dd id="saved-test-power">—</dd></div>
+          <div><dt>Coverage</dt><dd id="saved-test-coverage">—</dd></div>
+          <div><dt>Charging detected</dt><dd id="saved-test-charging">—</dd></div>
+        </dl>
+        <div class="dialog-actions">
+          <button id="export-saved-capacity-test" class="button button-quiet" type="button">Export CSV</button>
+          <button class="button button-primary" value="cancel">Done</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="details-dialog">
       <form method="dialog">
         <div class="dialog-heading">
@@ -314,12 +383,12 @@
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">Local history</p>
-            <h2>Export battery data</h2>
+            <h2>Export CSV data</h2>
           </div>
           <button class="icon-button" value="cancel" aria-label="Close">×</button>
         </div>
-        <p class="export-help">Bluefy did not open the iPad share sheet. You can copy the CSV below or try the browser download fallback.</p>
-        <textarea id="export-text" readonly aria-label="CSV battery history"></textarea>
+        <p class="export-help">Bluefy did not open the iPad share sheet. You can copy this CSV below or try the browser download fallback.</p>
+        <textarea id="export-text" readonly aria-label="CSV data"></textarea>
         <div class="dialog-actions">
           <button id="copy-export-button" class="button button-quiet" type="button">Copy CSV</button>
           <button id="download-export-button" class="button button-quiet" type="button">Try download</button>

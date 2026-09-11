@@ -115,6 +115,10 @@ Safari on iPad does not provide Web Bluetooth. The live page must be opened over
 
 Each sample stores timestamp, SOC, SOH, voltage, signed current, signed power, remaining/full Ah, ambient/MOS temperatures, up to four cell voltages, and warning count.
 
+Capacity tests use IndexedDB version 2 with separate `capacityTests` and `capacityTestSamples` stores. Only one test can be active. While it is active, every telemetry poll (roughly five seconds) is stored; completed tests remain until the user deletes them. Runs integrate discharged Ah and Wh with the trapezoidal rule, track charging separately, and reject intervals longer than 30 seconds. A run is labelled full-range only when it begins at 95% or higher and finishes at 5% or lower. The rating comparison is intentionally fixed at 100 Ah for this pack.
+
+This is a battery-side DC measurement based on the BMS current and voltage sensors. It cannot measure inverter AC output or independently validate BMS calibration. Capacity-test controls only start and stop browser recording; they never send battery control commands.
+
 Energy uses trapezoidal integration between adjacent samples. Intervals longer than five minutes are treated as gaps and are never estimated. This rule is important: iPad suspension, page closure, loss of range, or connection failures must not create invented usage.
 
 The dashboard currently provides:
@@ -171,7 +175,7 @@ GitHub Pages deploys the root of `main`. The service worker uses a named applica
 
 Whenever a production asset changes:
 
-1. Increment `CACHE_NAME` in `sw.js` (currently `gentai-dashboard-v4`).
+1. Increment `CACHE_NAME` in `sw.js` (currently `gentai-dashboard-v5`).
 2. Add any new runtime file to `APP_SHELL`.
 3. After deployment, refresh or close/reopen Bluefy so the installed dashboard receives the new cache.
 

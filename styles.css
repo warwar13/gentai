@@ -204,6 +204,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   grid-template-columns: minmax(210px, 0.86fr) minmax(320px, 1.42fr) minmax(225px, 0.92fr);
   grid-template-areas:
     "charge metrics analysis"
+    "capacity capacity capacity"
     "detail detail alerts"
     "chart chart chart"
     "analytics analytics analytics";
@@ -327,6 +328,37 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .metric-meter { height: 4px; margin-top: 9px; border-radius: 999px; overflow: hidden; background: rgba(139, 162, 168, 0.12); }
 .metric-meter span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--status-color); transition: width 500ms ease, background 220ms ease; }
 .metric-card > .metric-footnote { display: block; margin-top: 4px; color: var(--muted); text-align: right; }
+
+.capacity-test-panel { grid-area: capacity; }
+.capacity-test-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.capacity-test-heading > div > p:last-child { max-width: 680px; margin-top: 5px; color: var(--muted); font-size: 0.65rem; line-height: 1.5; }
+.capacity-test-status { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; color: var(--muted); background: rgba(139, 162, 168, 0.1); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+.capacity-test-status[data-state="active"] { color: var(--red); background: rgba(255, 107, 107, 0.11); animation: pulse 1.5s infinite; }
+.capacity-test-status[data-state="complete"] { color: var(--lime); background: rgba(168, 224, 99, 0.1); }
+.capacity-test-status[data-state="warning"] { color: var(--amber); background: rgba(255, 200, 87, 0.1); }
+.capacity-test-idle { margin-top: 14px; padding: 13px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 13px; background: rgba(5, 12, 17, 0.35); }
+.capacity-test-idle strong, .capacity-test-idle span { display: block; }
+.capacity-test-idle strong { font-size: 0.78rem; }
+.capacity-test-idle span { margin-top: 4px; color: var(--muted); font-size: 0.61rem; }
+.capacity-test-kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.capacity-test-kpis article { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 12, 17, 0.42); }
+.capacity-test-kpis span, .capacity-test-kpis small { display: block; color: var(--muted); font-size: 0.56rem; }
+.capacity-test-kpis strong { display: block; margin: 6px 0 4px; color: var(--cyan); font-size: 1rem; letter-spacing: -0.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.capacity-test-warnings { margin-top: 9px; padding: 9px 11px; color: #fff0ce; background: rgba(255, 200, 87, 0.09); border: 1px solid rgba(255, 200, 87, 0.2); border-radius: 10px; font-size: 0.61rem; line-height: 1.45; }
+.capacity-test-actions { margin-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.capacity-test-actions p { color: var(--muted); font-size: 0.6rem; line-height: 1.45; }
+.saved-tests-heading { margin-top: 17px; padding-top: 14px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); }
+.saved-tests-heading h3 { color: var(--text); font-size: 0.76rem; }
+.saved-tests-heading p { margin-top: 3px; color: var(--muted); font-size: 0.57rem; }
+.capacity-test-history { margin-top: 9px; display: grid; gap: 8px; }
+.capacity-test-empty { padding: 15px; color: var(--muted); border: 1px dashed var(--line); border-radius: 11px; font-size: 0.63rem; text-align: center; }
+.saved-test { padding: 11px 12px; display: grid; grid-template-columns: minmax(145px, 1.4fr) repeat(4, minmax(75px, 0.65fr)) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 12, 17, 0.38); }
+.saved-test-title strong, .saved-test-title span, .saved-test-metric span, .saved-test-metric strong { display: block; }
+.saved-test-title strong { font-size: 0.7rem; }
+.saved-test-title span, .saved-test-metric span { margin-top: 3px; color: var(--muted); font-size: 0.54rem; }
+.saved-test-metric strong { font-size: 0.72rem; }
+.saved-test-actions { display: flex; gap: 6px; }
+.saved-test-actions .button { min-height: 32px; padding: 0 10px; font-size: 0.63rem; }
 
 .analysis-panel { grid-area: analysis; }
 .analysis-list { margin-top: 11px; display: grid; }
@@ -497,9 +529,12 @@ dialog dd { margin: 0; text-align: right; }
 @media (max-width: 880px) {
   .dashboard {
     grid-template-columns: 1fr 1.35fr;
-    grid-template-areas: "charge metrics" "analysis analysis" "detail detail" "alerts alerts" "chart chart" "analytics analytics";
+    grid-template-areas: "charge metrics" "capacity capacity" "analysis analysis" "detail detail" "alerts alerts" "chart chart" "analytics analytics";
   }
   .analysis-list { grid-template-columns: repeat(2, 1fr); column-gap: 18px; }
+  .capacity-test-kpis { grid-template-columns: repeat(3, 1fr); }
+  .saved-test { grid-template-columns: 1.4fr repeat(2, 0.7fr) auto; }
+  .saved-test-metric:nth-of-type(3), .saved-test-metric:nth-of-type(4) { display: none; }
   .analytics-graphs { grid-template-columns: 1fr; }
 }
 
@@ -521,12 +556,19 @@ dialog dd { margin: 0; text-align: right; }
   .connection-error { align-items: stretch; flex-direction: column; }
   .connection-error-actions { justify-content: stretch; }
   .connection-error-actions .button { flex: 1; }
-  .dashboard { grid-template-columns: 1fr; grid-template-areas: "charge" "metrics" "analysis" "detail" "alerts" "chart" "analytics"; }
+  .dashboard { grid-template-columns: 1fr; grid-template-areas: "charge" "metrics" "capacity" "analysis" "detail" "alerts" "chart" "analytics"; }
   .charge-panel { min-height: 410px; }
   .chart-header { align-items: flex-start; flex-direction: column; }
   .chart-controls { justify-content: flex-start; }
   .analytics-header { align-items: flex-start; flex-direction: column; }
   .analytics-kpis { grid-template-columns: repeat(2, 1fr); }
+  .capacity-test-heading, .capacity-test-idle, .capacity-test-actions { align-items: stretch; flex-direction: column; }
+  .capacity-test-status { align-self: flex-start; }
+  .capacity-test-kpis { grid-template-columns: repeat(2, 1fr); }
+  .saved-test { grid-template-columns: 1fr 1fr; }
+  .saved-test-title { grid-column: 1 / -1; }
+  .saved-test-metric:nth-of-type(2), .saved-test-metric:nth-of-type(3), .saved-test-metric:nth-of-type(4), .saved-test-metric:nth-of-type(5) { display: block; }
+  .saved-test-actions { grid-column: 1 / -1; }
   .export-dialog .dialog-actions { flex-wrap: wrap; }
 }
 
