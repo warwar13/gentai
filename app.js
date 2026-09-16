@@ -540,27 +540,40 @@ async function handleTelemetry(telemetry) {
 function renderTelemetry(data) {
   const soc = clamp(data.socPct, 0, 100);
   $("#soc-value").textContent = formatNumber(soc, 0);
-  $("#soc-caption").textContent = soc <= 20 ? "Low charge" : soc >= 95 ? "Nearly full" : "Available";
-  $("#soc-gauge").style.setProperty("--soc-angle", `${soc * 3.6}deg`);
+  $("#soc-caption").textContent = titleCase(data.mode);
+  $("#soc-gauge").dataset.status = soc <= 20 ? "danger" : soc <= 40 ? "warning" : "good";
+  $("#soc-gauge").style.setProperty("--soc-angle", `${soc * 2.7}deg`);
   $("#capacity-fill").style.width = `${soc}%`;
   $("#mode-pill").dataset.mode = data.mode;
   $("#mode-pill").textContent = titleCase(data.mode);
 
   setValue("#power-value", Math.abs(data.powerW), 0);
+  setValue("#hero-power-value", Math.abs(data.powerW), 0);
   const powerStatus = assessPower(data.powerW);
   setGlanceState("#power-card", "#power-caption", powerStatus);
-  $("#power-meter").style.width = `${Math.min(powerStatus.ratio ?? 0, 1) * 100}%`;
+  setMeterAngle("#power-card", powerStatus.ratio ?? 0);
   $("#power-limit-label").textContent = `${formatNumber((powerStatus.ratio ?? 0) * 100, 0)}% of ${POWER_LIMIT_W} W limit`;
   setValue("#voltage-value", data.voltageV, 2);
+  $("#hero-voltage-value").textContent = `${formatNumber(data.voltageV, 2)} V`;
+  setMeterAngle("#voltage-card", (data.voltageV - 10) / 5);
   $("#current-value").textContent = `${data.currentA > 0 ? "+" : ""}${formatNumber(data.currentA, 2)}`;
   $("#current-caption").textContent = data.currentA > 0 ? "Positive means charging" : data.currentA < 0 ? "Negative means discharging" : "No measurable current";
+  $("#current-card").dataset.status = data.currentA > 0.15 ? "good" : data.currentA < -0.15 ? "warning" : "neutral";
+  setMeterAngle("#current-card", Math.abs(data.currentA) / 50);
   setValue("#soh-value", data.sohPct, 0);
   setValue("#ambient-value", data.temperaturesC.ambient, 0);
   setValue("#mos-value", data.temperaturesC.mos, 0);
+  const temperatures = [data.temperaturesC.ambient, data.temperaturesC.mos, ...(data.temperaturesC.probes ?? [])].filter(Number.isFinite);
+  const maximumTemperature = temperatures.length ? Math.max(...temperatures) : null;
+  $("#temperature-value").textContent = maximumTemperature === null ? "—" : formatNumber(maximumTemperature, 0);
+  $("#hero-temperature-value").textContent = maximumTemperature === null ? "— °C" : `${formatNumber(maximumTemperature, 0)} °C`;
+  const temperatureStatus = assessTemperature(maximumTemperature, "mos");
+  setGlanceState("#temperature-card", "#temperature-caption", temperatureStatus);
+  setMeterAngle("#temperature-card", maximumTemperature === null ? 0 : maximumTemperature / 65);
   setGlanceState("#health-card", "#soh-caption", assessHealth(data.sohPct));
   setGlanceState("#ambient-card", "#ambient-caption", assessTemperature(data.temperaturesC.ambient, "ambient"));
   setGlanceState("#mos-card", "#mos-caption", assessTemperature(data.temperaturesC.mos, "mos"));
-  $("#remaining-capacity").textContent = `${formatNumber(data.remainingAh, 1)} Ah remaining`;
+  $("#remaining-capacity").textContent = `${formatNumber(data.remainingAh, 1)} Ah`;
   $("#full-capacity").textContent = `${formatNumber(data.fullAh, 1)} Ah full`;
   $("#cycle-count").textContent = `${data.cycles} cycles`;
   $("#last-updated").textContent = `Updated ${formatRelative(data.timestamp)}`;
@@ -576,12 +589,12 @@ function renderEstimate(estimate) {
   if (!estimate) {
     $("#estimate-label").textContent = "Remaining time";
     $("#estimate-value").textContent = "Stable / idle";
-    $("#estimate-clock").textContent = "Estimate appears while charging or in use";
+    $("#estimate-clock").textContent = "Shown while charging or in use";
     return;
   }
-  $("#estimate-label").textContent = estimate.direction === "empty" ? "Estimated runtime" : "Estimated charge time";
+  $("#estimate-label").textContent = estimate.direction === "empty" ? "Until 20%" : "Until full";
   $("#estimate-value").textContent = formatDuration(estimate.hours);
-  $("#estimate-clock").textContent = `Approximately ${estimate.direction} at ${formatTime(estimate.at)}`;
+  $("#estimate-clock").textContent = `≈ ${formatTime(estimate.at)}`;
 }
 
 function renderCells(cells, min, max, delta) {
@@ -607,6 +620,11 @@ function renderTemperatures(probes) {
 function setGlanceState(cardSelector, labelSelector, assessment) {
   $(cardSelector).dataset.status = assessment.state;
   $(labelSelector).textContent = assessment.label;
+}
+
+function setMeterAngle(selector, ratio) {
+  const safeRatio = Number.isFinite(ratio) ? clamp(ratio, 0, 1) : 0;
+  $(selector).style.setProperty("--meter-angle", `${safeRatio * 270}deg`);
 }
 
 function renderWarnings(warnings) {

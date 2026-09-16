@@ -1,14 +1,14 @@
 {
-  "name": "Gentai Battery Dashboard",
-  "short_name": "Gentai Battery",
+  "name": "OyaVolt Battery Monitor",
+  "short_name": "OyaVolt",
   "description": "Read-only Bluetooth monitoring and local usage history for a Gentai 12.8 V 100 Ah battery.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "landscape",
-  "background_color": "#071016",
-  "theme_color": "#071016",
+  "orientation": "any",
+  "background_color": "#070a08",
+  "theme_color": "#070a08",
   "icons": [
     {
       "src": "./icon.svg",

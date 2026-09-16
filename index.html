@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#071016" />
+    <meta name="theme-color" content="#070a08" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Gentai Battery" />
-    <title>Gentai Battery Dashboard</title>
+    <meta name="apple-mobile-web-app-title" content="OyaVolt" />
+    <title>OyaVolt Battery Monitor</title>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
@@ -17,8 +17,8 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"><span></span></div>
         <div>
-          <p class="eyebrow">12.8 V · 100 Ah LiFePO₄</p>
-          <h1>Gentai Battery</h1>
+          <p class="eyebrow">Battery monitor</p>
+          <h1>OyaVolt</h1>
         </div>
       </div>
 
@@ -66,11 +66,23 @@
           <span id="mode-pill" class="mode-pill" data-mode="offline">Offline</span>
         </div>
 
-        <div id="soc-gauge" class="soc-gauge" style="--soc-angle: 0deg">
+        <div id="soc-gauge" class="soc-gauge" data-status="neutral" style="--soc-angle: 0deg">
           <div class="soc-gauge-inner">
             <strong><span id="soc-value">--</span><small>%</small></strong>
-            <span id="soc-caption">Waiting</span>
+            <span>STATE OF CHARGE</span>
+            <b id="soc-caption">Waiting</b>
           </div>
+        </div>
+
+        <div class="hero-power">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M13.5 2 6 13h5l-.5 9L18 10h-5l.5-8Z"></path></svg>
+          <strong><span id="hero-power-value">—</span> W</strong>
+        </div>
+
+        <div class="hero-stats">
+          <div><span>Pack</span><strong id="hero-voltage-value">— V</strong></div>
+          <div><span>Remaining</span><strong id="remaining-capacity">— Ah</strong></div>
+          <div><span>Temperature</span><strong id="hero-temperature-value">— °C</strong></div>
         </div>
 
         <div class="estimate">
@@ -82,62 +94,42 @@
           <span id="capacity-fill"></span>
         </div>
         <div class="capacity-labels">
-          <span id="remaining-capacity">— Ah remaining</span>
+          <span>Usable battery estimate</span>
           <span id="full-capacity">— Ah full</span>
         </div>
       </section>
 
-      <section class="metrics-grid" aria-label="Live measurements">
-        <article id="power-card" class="metric-card metric-featured" data-status="neutral">
-          <div class="metric-symbol metric-symbol-power" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M13.5 2 6 13h5l-.5 9L18 10h-5l.5-8Z"></path></svg>
+      <section class="panel instruments-panel" aria-labelledby="instruments-title">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Live instruments</p>
+            <h2 id="instruments-title">Electrical & thermal load</h2>
           </div>
-          <p>Battery DC power</p>
-          <strong><span id="power-value">—</span><small>W</small></strong>
-          <span id="power-caption" class="metric-status">Waiting</span>
-          <div class="metric-meter" aria-hidden="true"><span id="power-meter"></span></div>
-          <span id="power-limit-label" class="metric-footnote">600 W limit</span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-symbol metric-symbol-static" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2"></rect><path d="M21 10v4M7 12h3m-1.5-1.5v3m4.5-1.5h3"></path></svg>
-          </div>
-          <p>Pack voltage</p>
-          <strong><span id="voltage-value">—</span><small>V</small></strong>
-          <span>Across the battery</span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-symbol metric-symbol-static" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 8h12m-3-3 3 3-3 3M19 16H7m3 3-3-3 3-3"></path></svg>
-          </div>
-          <p>Current</p>
-          <strong><span id="current-value">—</span><small>A</small></strong>
-          <span id="current-caption">Signed BMS current</span>
-        </article>
-        <article id="health-card" class="metric-card" data-status="neutral">
-          <div class="metric-symbol" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.4-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.6-7 11-7 11Z"></path><path d="M7.8 13h2l1.2-3 2 6 1.2-3h2"></path></svg>
-          </div>
-          <p>State of health</p>
-          <strong><span id="soh-value">—</span><small>%</small></strong>
-          <span id="soh-caption" class="metric-status">Waiting</span>
-        </article>
-        <article id="ambient-card" class="metric-card" data-status="neutral">
-          <div class="metric-symbol" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M10 14.8V5a3 3 0 0 1 6 0v9.8a5 5 0 1 1-6 0Z"></path><path d="M13 8h3M13 12h3"></path></svg>
-          </div>
-          <p>Ambient</p>
-          <strong><span id="ambient-value">—</span><small>°C</small></strong>
-          <span id="ambient-caption" class="metric-status">Waiting</span>
-        </article>
-        <article id="mos-card" class="metric-card" data-status="neutral">
-          <div class="metric-symbol" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M10 14.8V5a3 3 0 0 1 6 0v9.8a5 5 0 1 1-6 0Z"></path><path d="M13 7h3M13 10h3M13 13h3"></path></svg>
-          </div>
-          <p>MOS temperature</p>
-          <strong><span id="mos-value">—</span><small>°C</small></strong>
-          <span id="mos-caption" class="metric-status">Waiting</span>
-        </article>
+        </div>
+        <div class="metrics-grid" aria-label="Live measurements">
+          <article id="power-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg">
+            <p>Load</p><div class="instrument-dial"><strong><span id="power-value">—</span><small>W</small></strong></div>
+            <span id="power-caption" class="metric-status">Waiting</span>
+            <span id="power-limit-label" class="metric-footnote">600 W range</span>
+          </article>
+          <article id="voltage-card" class="metric-card instrument-card" data-status="good" style="--meter-angle: 0deg">
+            <p>Pack voltage</p><div class="instrument-dial"><strong><span id="voltage-value">—</span><small>V</small></strong></div>
+            <span>10–15 V range</span>
+          </article>
+          <article id="temperature-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg">
+            <p>Temperature</p><div class="instrument-dial"><strong><span id="temperature-value">—</span><small>°C</small></strong></div>
+            <span id="temperature-caption" class="metric-status">Waiting</span>
+          </article>
+          <article id="current-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg">
+            <p>Signed current</p><div class="instrument-dial"><strong><span id="current-value">—</span><small>A</small></strong></div>
+            <span id="current-caption">Signed BMS current</span>
+          </article>
+        </div>
+        <div class="vitals-grid">
+          <article id="health-card" class="vital-card" data-status="neutral"><span>Health</span><strong><span id="soh-value">—</span>%</strong><small id="soh-caption">Waiting</small></article>
+          <article id="ambient-card" class="vital-card" data-status="neutral"><span>Ambient</span><strong><span id="ambient-value">—</span>°C</strong><small id="ambient-caption">Waiting</small></article>
+          <article id="mos-card" class="vital-card" data-status="neutral"><span>MOS</span><strong><span id="mos-value">—</span>°C</strong><small id="mos-caption">Waiting</small></article>
+        </div>
       </section>
 
       <section class="panel capacity-test-panel" aria-labelledby="capacity-test-title">

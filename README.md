@@ -1,4 +1,4 @@
-# Gentai Battery Dashboard
+# OyaVolt Battery Monitor
 
 A static, read-only Web Bluetooth dashboard for the Gentai 12.8 V 100 Ah battery identified as `DCHE123` / `BMC1_E123`.
 
