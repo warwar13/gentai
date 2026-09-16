@@ -306,10 +306,10 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .hero-stats span { color: var(--muted); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.07em; }
 .hero-stats strong { margin-top: 4px; overflow: hidden; color: var(--lime); font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
 
-.estimate { width: fit-content; max-width: 100%; margin: 12px auto 10px; padding: 8px 14px; text-align: center; display: grid; gap: 2px; border-radius: 999px; color: var(--lime); background: rgba(168, 240, 90, 0.1); }
-.estimate span { color: var(--muted); font-size: 0.65rem; }
-.estimate strong { font-size: 1.15rem; }
-.estimate small { min-height: 1em; color: currentColor; font-size: 0.62rem; }
+.estimate { width: fit-content; max-width: 100%; margin: 3px auto 7px; padding: 0; display: grid; grid-template-columns: auto auto; column-gap: 5px; text-align: center; color: var(--muted); }
+.estimate span { font-size: 0.6rem; }
+.estimate strong { color: var(--text); font-size: 0.72rem; font-weight: 650; }
+.estimate small { grid-column: 1 / -1; min-height: 1em; margin-top: 1px; color: var(--muted); font-size: 0.56rem; }
 
 .capacity-bar { height: 5px; margin-top: auto; border-radius: 999px; background: rgba(139, 162, 168, 0.12); overflow: hidden; }
 .capacity-bar span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--lime)); transition: width 500ms ease; }
