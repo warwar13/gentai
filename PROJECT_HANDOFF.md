@@ -175,7 +175,7 @@ GitHub Pages deploys the root of `main`. The service worker uses a named applica
 
 Whenever a production asset changes:
 
-1. Increment `CACHE_NAME` in `sw.js` (currently `oyavolt-dashboard-v10`).
+1. Increment `CACHE_NAME` in `sw.js` (currently `oyavolt-dashboard-v11`).
 2. Add any new runtime file to `APP_SHELL`.
 3. After deployment, refresh or close/reopen Bluefy so the installed dashboard receives the new cache.
 

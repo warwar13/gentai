@@ -1,4 +1,4 @@
-const CACHE_NAME = "oyavolt-dashboard-v10";
+const CACHE_NAME = "oyavolt-dashboard-v11";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -74,21 +74,15 @@
           </div>
         </div>
 
-        <div class="hero-power">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M13.5 2 6 13h5l-.5 9L18 10h-5l.5-8Z"></path></svg>
-          <strong><span id="hero-power-value">—</span> W</strong>
-        </div>
-
         <div class="estimate">
           <span id="estimate-label">Remaining time</span>
           <strong id="estimate-value">—</strong>
           <small id="estimate-clock">Connect for an estimate</small>
         </div>
 
-        <div class="hero-stats">
-          <div><span>Pack</span><strong id="hero-voltage-value">— V</strong></div>
-          <div><span>Remaining</span><strong id="remaining-capacity">— Ah</strong></div>
-          <div><span>Temperature</span><strong id="hero-temperature-value">— °C</strong></div>
+        <div class="hero-remaining">
+          <span>Remaining capacity</span>
+          <strong id="remaining-capacity">— Ah</strong>
         </div>
 
         <div class="capacity-bar" aria-label="Battery capacity">
@@ -108,13 +102,13 @@
           </div>
         </div>
         <div class="metrics-grid" aria-label="Live measurements">
-          <article id="voltage-card" class="metric-card instrument-card" data-status="good" style="--meter-angle: 0deg; --meter-needle-angle: 0deg">
-            <p>Pack voltage</p><div class="instrument-dial" role="meter" aria-label="Pack voltage" aria-valuemin="10" aria-valuemax="14.6"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="voltage-value">—</span><small>V</small></strong></div>
+          <article id="voltage-card" class="metric-card instrument-card" data-status="good" style="--meter-angle: 0deg">
+            <p>Pack voltage</p><div class="instrument-dial" role="meter" aria-label="Pack voltage" aria-valuemin="10" aria-valuemax="14.6"><strong><span id="voltage-value">—</span><small>V</small></strong></div>
             <span class="instrument-scale"><b>10.0</b><b>14.6 V</b></span>
             <span>4S LiFePO₄ range</span>
           </article>
-          <article id="power-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg; --meter-needle-angle: 0deg">
-            <p>Live wattage</p><div class="instrument-dial" role="meter" aria-label="Absolute live battery power" aria-valuemin="0" aria-valuemax="600"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="power-value">—</span><small>W</small></strong></div>
+          <article id="power-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg">
+            <p>Live wattage</p><div class="instrument-dial" role="meter" aria-label="Absolute live battery power" aria-valuemin="0" aria-valuemax="600"><strong><span id="power-value">—</span><small>W</small></strong></div>
             <span class="instrument-scale"><b>0</b><b>600 W</b></span>
             <span id="power-caption" class="metric-status">Waiting</span>
           </article>
@@ -237,24 +231,10 @@
       <section class="panel detail-panel" aria-labelledby="detail-title">
         <div class="panel-heading compact">
           <div>
-            <p class="eyebrow">Pack detail</p>
-            <h2 id="detail-title">Cells & status</h2>
-          </div>
-          <div class="detail-heading-actions">
-            <span id="cell-balance-status" class="glance-status" data-status="neutral">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="6" width="16" height="12" rx="2"></rect><path d="M21 10v4M7 12h3m3 0h3"></path></svg>
-              <span>Waiting for cells</span>
-            </span>
-            <span id="cycle-count" class="cycle-count">— cycles</span>
+            <p class="eyebrow">Battery details</p>
+            <h2 id="detail-title">Temperatures & device</h2>
           </div>
         </div>
-
-        <div class="cell-summary">
-          <div><span>Lowest</span><strong id="cell-min">— V</strong></div>
-          <div><span>Highest</span><strong id="cell-max">— V</strong></div>
-          <div><span>Difference</span><strong id="cell-delta">— mV</strong></div>
-        </div>
-        <div id="cell-list" class="cell-list"><p>No cell readings</p></div>
 
         <div class="probe-section">
           <h3>Temperature probes</h3>

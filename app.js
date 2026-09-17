@@ -558,30 +558,24 @@ function renderTelemetry(data) {
   $("#mode-pill").dataset.mode = data.mode;
   $("#mode-pill").textContent = titleCase(data.mode);
 
-  setValue("#hero-power-value", Math.abs(data.powerW), 0);
   setValue("#power-value", Math.abs(data.powerW), 0);
   const powerStatus = assessPower(data.powerW);
   setGlanceState("#power-card", "#power-caption", powerStatus);
   setMeterAngle("#power-card", gaugeRatio(Math.abs(data.powerW), 0, POWER_LIMIT_W), Math.abs(data.powerW));
   setValue("#voltage-value", data.voltageV, 2);
-  $("#hero-voltage-value").textContent = `${formatNumber(data.voltageV, 2)} V`;
   setMeterAngle("#voltage-card", gaugeRatio(data.voltageV, PACK_VOLTAGE_MIN_V, PACK_VOLTAGE_MAX_V), data.voltageV);
   setValue("#soh-value", data.sohPct, 0);
   setValue("#ambient-value", data.temperaturesC.ambient, 0);
   setValue("#mos-value", data.temperaturesC.mos, 0);
-  const temperatures = [data.temperaturesC.ambient, data.temperaturesC.mos, ...(data.temperaturesC.probes ?? [])].filter(Number.isFinite);
-  const maximumTemperature = temperatures.length ? Math.max(...temperatures) : null;
-  $("#hero-temperature-value").textContent = maximumTemperature === null ? "— °C" : `${formatNumber(maximumTemperature, 0)} °C`;
   setGlanceState("#health-card", "#soh-caption", assessHealth(data.sohPct));
   setGlanceState("#ambient-card", "#ambient-caption", assessTemperature(data.temperaturesC.ambient, "ambient"));
   setGlanceState("#mos-card", "#mos-caption", assessTemperature(data.temperaturesC.mos, "mos"));
   $("#remaining-capacity").textContent = `${formatNumber(data.remainingAh, 1)} Ah`;
   $("#full-capacity").textContent = `${formatNumber(data.fullAh, 1)} Ah full`;
-  $("#cycle-count").textContent = `${data.cycles} cycles`;
   $("#last-updated").textContent = `Updated ${formatRelative(data.timestamp)}`;
 
   renderEstimate(data.estimate);
-  renderCells(data.cellsV, data.cellMinV, data.cellMaxV, data.cellDeltaV);
+  renderCells(data.cellsV, data.cellDeltaV);
   renderTemperatures(data.temperaturesC.probes);
   renderWarnings(data.warnings);
   renderIdentity(data.identity);
@@ -599,24 +593,15 @@ function renderEstimate(estimate) {
   $("#estimate-clock").textContent = `≈ ${formatTime(estimate.at)}`;
 }
 
-function renderCells(cells, min, max, delta) {
+function renderCells(cells, delta) {
   const balance = assessCellBalance(delta);
   const deltaMv = Number.isFinite(delta) ? delta * 1000 : null;
-  const balanceBadge = $("#cell-balance-status");
-  balanceBadge.dataset.status = balance.state;
-  balanceBadge.querySelector("span").textContent = balance.label;
-  $("#cell-min").textContent = min === null ? "— V" : `${formatNumber(min, 3)} V`;
-  $("#cell-max").textContent = max === null ? "— V" : `${formatNumber(max, 3)} V`;
-  $("#cell-delta").textContent = delta === null ? "— mV" : `${formatNumber(delta * 1000, 0)} mV`;
   $("#instrument-cell-delta").textContent = deltaMv === null ? "—" : formatNumber(deltaMv, 0);
   setGlanceState("#instrument-delta-card", "#instrument-delta-caption", balance);
   $("#instrument-cell-list").innerHTML = Array.from({ length: 4 }, (_, index) => {
     const value = cells[index];
     return `<article class="instrument-cell" data-status="${Number.isFinite(value) ? balance.state : "neutral"}"><span>C${index + 1}</span><strong>${Number.isFinite(value) ? formatNumber(value, 3) : "—"}</strong><small>V</small></article>`;
   }).join("");
-  $("#cell-list").innerHTML = cells.length
-    ? cells.map((value, index) => `<div class="cell-item" data-status="${balance.state}"><span>Cell ${index + 1}</span><strong>${formatNumber(value, 3)} V</strong><i aria-hidden="true"></i></div>`).join("")
-    : "<p>No cell readings</p>";
 }
 
 function renderTemperatures(probes) {
@@ -635,7 +620,6 @@ function setMeterAngle(selector, ratio, value = null) {
   const safeRatio = Number.isFinite(ratio) ? clamp(ratio, 0, 1) : 0;
   const card = $(selector);
   card.style.setProperty("--meter-angle", `${safeRatio * 270}deg`);
-  card.style.setProperty("--meter-needle-angle", `${safeRatio * 270}deg`);
   const meter = card.querySelector(".instrument-dial");
   if (meter && Number.isFinite(value)) meter.setAttribute("aria-valuenow", `${value}`);
 }
