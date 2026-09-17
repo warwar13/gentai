@@ -27,7 +27,7 @@ import {
   PACK_VOLTAGE_MAX_V,
   PACK_VOLTAGE_MIN_V,
   POWER_LIMIT_W,
-  socGaugeAngle,
+  socGaugeGapAngle,
 } from "./status.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -552,9 +552,8 @@ function renderTelemetry(data) {
   $("#soc-value").textContent = formatNumber(soc, 0);
   $("#soc-caption").textContent = titleCase(data.mode);
   $("#soc-gauge").dataset.status = soc <= 20 ? "danger" : soc <= 40 ? "warning" : "good";
-  $("#soc-gauge").style.setProperty("--soc-angle", `${socGaugeAngle(soc)}deg`);
+  $("#soc-gauge").style.setProperty("--soc-gap-angle", `${socGaugeGapAngle(soc)}deg`);
   $("#soc-gauge").setAttribute("aria-valuenow", `${soc}`);
-  $("#capacity-fill").style.width = `${soc}%`;
   $("#mode-pill").dataset.mode = data.mode;
   $("#mode-pill").textContent = titleCase(data.mode);
 
@@ -571,7 +570,6 @@ function renderTelemetry(data) {
   setGlanceState("#ambient-card", "#ambient-caption", assessTemperature(data.temperaturesC.ambient, "ambient"));
   setGlanceState("#mos-card", "#mos-caption", assessTemperature(data.temperaturesC.mos, "mos"));
   $("#remaining-capacity").textContent = `${formatNumber(data.remainingAh, 1)} Ah`;
-  $("#full-capacity").textContent = `${formatNumber(data.fullAh, 1)} Ah full`;
   $("#last-updated").textContent = `Updated ${formatRelative(data.timestamp)}`;
 
   renderEstimate(data.estimate);

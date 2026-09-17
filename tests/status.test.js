@@ -8,6 +8,7 @@ import {
   gaugeRatio,
   POWER_LIMIT_W,
   socGaugeAngle,
+  socGaugeGapAngle,
 } from "../status.js";
 
 test("grades live power against the configured 600 watt limit", () => {
@@ -35,6 +36,10 @@ test("maps SOC to a complete 360 degree ring", () => {
   assert.equal(socGaugeAngle(50), 180);
   assert.equal(socGaugeAngle(99), 356.4);
   assert.equal(socGaugeAngle(100), 360);
+  assert.equal(socGaugeGapAngle(100), 0);
+  assert.equal(socGaugeGapAngle(99), 3.6);
+  assert.equal(socGaugeGapAngle(80), 72);
+  assert.equal(socGaugeGapAngle(0), 360);
 });
 
 test("normalizes the 4S LiFePO4 voltage gauge and clamps visual overflow", () => {

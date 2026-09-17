@@ -255,7 +255,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .mode-pill[data-mode="idle"] { color: var(--lime); background: rgba(168, 224, 99, 0.1); }
 
 .soc-gauge {
-  --soc-angle: 0deg;
+  --soc-gap-angle: 360deg;
   --soc-color: var(--muted);
   width: 214px;
   height: 214px;
@@ -263,7 +263,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   margin: 18px auto 8px;
   padding: 17px;
   border-radius: 50%;
-  background: conic-gradient(from -90deg, var(--soc-color) 0 var(--soc-angle), rgba(173, 184, 169, 0.12) var(--soc-angle) 360deg);
+  background: conic-gradient(from 0deg, rgba(173, 184, 169, 0.12) 0 var(--soc-gap-angle), var(--soc-color) var(--soc-gap-angle) 360deg);
   position: relative;
   box-shadow: 0 0 42px rgba(168, 240, 90, 0.12);
   transition: background 500ms ease, box-shadow 250ms ease;
@@ -277,7 +277,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   position: absolute;
   inset: -9px;
   border-radius: inherit;
-  background: repeating-conic-gradient(from -90deg, var(--soc-color) 0 1deg, transparent 1deg 9deg);
+  background: repeating-conic-gradient(from 0deg, var(--soc-color) 0 1deg, transparent 1deg 9deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
   mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
   opacity: 0.72;
@@ -306,10 +306,6 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .estimate span { font-size: 0.6rem; }
 .estimate strong { color: var(--text); font-size: 0.72rem; font-weight: 650; }
 .estimate small { grid-column: 1 / -1; min-height: 1em; margin-top: 1px; color: var(--muted); font-size: 0.56rem; }
-
-.capacity-bar { height: 5px; margin-top: 12px; border-radius: 999px; background: rgba(139, 162, 168, 0.12); overflow: hidden; }
-.capacity-bar span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--lime)); transition: width 500ms ease; }
-.capacity-labels { display: flex; justify-content: space-between; margin-top: 7px; color: var(--muted); font-size: 0.58rem; }
 
 .instruments-panel { grid-area: metrics; }
 .instruments-panel > .panel-heading { margin-bottom: 12px; }

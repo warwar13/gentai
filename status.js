@@ -11,6 +11,10 @@ export function socGaugeAngle(percent) {
   return gaugeRatio(percent, 0, 100) * 360;
 }
 
+export function socGaugeGapAngle(percent) {
+  return Math.round((1 - gaugeRatio(percent, 0, 100)) * 3600) / 10;
+}
+
 export function assessPower(powerW) {
   if (!Number.isFinite(powerW)) return neutral("Waiting");
   const watts = Math.abs(powerW);
