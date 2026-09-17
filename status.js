@@ -1,4 +1,30 @@
 export const POWER_LIMIT_W = 600;
+export const PACK_VOLTAGE_MIN_V = 10;
+export const PACK_VOLTAGE_MAX_V = 14.6;
+export const CURRENT_GAUGE_MAX_A = 50;
+export const TEMPERATURE_GAUGE_MAX_C = 65;
+export const CELL_DELTA_GAUGE_MAX_MV = 100;
+
+export function gaugeRatio(value, minimum, maximum) {
+  if (!Number.isFinite(value) || !Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum <= minimum) return 0;
+  return Math.min(1, Math.max(0, (value - minimum) / (maximum - minimum)));
+}
+
+export function socGaugeAngle(percent) {
+  return gaugeRatio(percent, 0, 100) * 360;
+}
+
+export function signedCurrentGauge(currentA, maximumMagnitudeA = CURRENT_GAUGE_MAX_A) {
+  if (!Number.isFinite(currentA) || !Number.isFinite(maximumMagnitudeA) || maximumMagnitudeA <= 0) {
+    return { positionRatio: 0.5, negativeRatio: 0, positiveRatio: 0 };
+  }
+  const clamped = Math.min(maximumMagnitudeA, Math.max(-maximumMagnitudeA, currentA));
+  return {
+    positionRatio: (clamped + maximumMagnitudeA) / (maximumMagnitudeA * 2),
+    negativeRatio: clamped < 0 ? Math.abs(clamped) / maximumMagnitudeA : 0,
+    positiveRatio: clamped > 0 ? clamped / maximumMagnitudeA : 0,
+  };
+}
 
 export function assessPower(powerW) {
   if (!Number.isFinite(powerW)) return neutral("Waiting");

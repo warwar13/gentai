@@ -263,7 +263,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   margin: 18px auto 8px;
   padding: 17px;
   border-radius: 50%;
-  background: conic-gradient(from 135deg, var(--soc-color) 0 var(--soc-angle), rgba(173, 184, 169, 0.12) 0 270deg, transparent 270deg);
+  background: conic-gradient(from -90deg, var(--soc-color) 0 var(--soc-angle), rgba(173, 184, 169, 0.12) var(--soc-angle) 360deg);
   position: relative;
   box-shadow: 0 0 42px rgba(168, 240, 90, 0.12);
   transition: background 500ms ease, box-shadow 250ms ease;
@@ -277,7 +277,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   position: absolute;
   inset: -9px;
   border-radius: inherit;
-  background: repeating-conic-gradient(from 135deg, var(--soc-color) 0 1deg, transparent 1deg 6.75deg);
+  background: repeating-conic-gradient(from -90deg, var(--soc-color) 0 1deg, transparent 1deg 9deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
   mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
   opacity: 0.72;
@@ -362,7 +362,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .metric-meter span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--status-color); transition: width 500ms ease, background 220ms ease; }
 .metric-card > .metric-footnote { display: block; margin-top: 4px; color: var(--muted); text-align: right; }
 
-.instrument-card { padding: 12px; text-align: center; background: rgba(6, 10, 7, 0.52); }
+.instrument-card { --meter-needle-angle: 0deg; padding: 12px; text-align: center; background: rgba(6, 10, 7, 0.52); }
 .instrument-card p { font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; }
 .instrument-card > span { display: block; }
 .instrument-card > .metric-status { justify-content: center; }
@@ -382,7 +382,40 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 0);
   mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 0);
 }
-.instrument-dial strong { width: 100%; margin: 0; position: absolute; left: 0; bottom: 0; z-index: 1; color: var(--status-color); font-size: 1.35rem; }
+.bipolar-card .instrument-dial::before {
+  background:
+    conic-gradient(from var(--meter-negative-start), var(--status-color) 0 var(--meter-negative-angle), transparent var(--meter-negative-angle)),
+    conic-gradient(from 0deg, var(--status-color) 0 var(--meter-positive-angle), transparent var(--meter-positive-angle)),
+    conic-gradient(from 225deg, rgba(173, 184, 169, 0.12) 0 270deg, transparent 270deg);
+}
+.instrument-needle {
+  width: 2px;
+  height: 45px;
+  position: absolute;
+  left: calc(50% - 1px);
+  top: 26px;
+  z-index: 2;
+  border-radius: 999px;
+  background: var(--status-color);
+  box-shadow: 0 0 7px rgba(168, 240, 90, 0.34);
+  transform: rotate(calc(-135deg + var(--meter-needle-angle)));
+  transform-origin: 50% 100%;
+  transition: transform 500ms ease, background 220ms ease;
+}
+.instrument-needle::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  position: absolute;
+  left: -2.5px;
+  bottom: -3px;
+  border-radius: 50%;
+  background: var(--status-color);
+}
+.instrument-dial strong { width: 100%; margin: 0; position: absolute; left: 0; bottom: 0; z-index: 3; color: var(--status-color); font-size: 1.35rem; }
+.instrument-scale { width: min(138px, 100%); margin: -2px auto 3px; display: flex !important; justify-content: space-between; position: relative; color: var(--muted); }
+.instrument-scale b { font-size: 0.5rem; font-weight: 650; }
+.instrument-scale-three b:nth-child(2) { position: absolute; left: 50%; transform: translateX(-50%); }
 .vitals-grid { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .vital-card { --status-color: var(--muted); min-width: 0; padding: 10px; border-radius: 14px; text-align: center; background: rgba(6, 10, 7, 0.52); border: 1px solid var(--line); }
 .vital-card[data-status="good"] { --status-color: var(--lime); }

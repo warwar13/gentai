@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessCellBalance, assessHealth, assessPower, assessTemperature, POWER_LIMIT_W } from "../status.js";
+import {
+  assessCellBalance,
+  assessHealth,
+  assessPower,
+  assessTemperature,
+  gaugeRatio,
+  POWER_LIMIT_W,
+  signedCurrentGauge,
+  socGaugeAngle,
+} from "../status.js";
 
 test("grades live power against the configured 600 watt limit", () => {
   assert.equal(POWER_LIMIT_W, 600);
@@ -20,4 +29,25 @@ test("grades health, temperature, and cell balance for glance indicators", () =>
   assert.equal(assessCellBalance(0.004).label, "Cells balanced");
   assert.equal(assessCellBalance(0.035).state, "warning");
   assert.equal(assessCellBalance(0.060).state, "danger");
+});
+
+test("maps SOC to a complete 360 degree ring", () => {
+  assert.equal(socGaugeAngle(0), 0);
+  assert.equal(socGaugeAngle(50), 180);
+  assert.equal(socGaugeAngle(99), 356.4);
+  assert.equal(socGaugeAngle(100), 360);
+});
+
+test("normalizes the 4S LiFePO4 voltage gauge and clamps visual overflow", () => {
+  assert.equal(gaugeRatio(10, 10, 14.6), 0);
+  assert.equal(gaugeRatio(14.6, 10, 14.6), 1);
+  assert.equal(gaugeRatio(16, 10, 14.6), 1);
+  assert.equal(gaugeRatio(8, 10, 14.6), 0);
+});
+
+test("maps signed current around a centered zero", () => {
+  assert.deepEqual(signedCurrentGauge(-50), { positionRatio: 0, negativeRatio: 1, positiveRatio: 0 });
+  assert.deepEqual(signedCurrentGauge(0), { positionRatio: 0.5, negativeRatio: 0, positiveRatio: 0 });
+  assert.deepEqual(signedCurrentGauge(25), { positionRatio: 0.75, negativeRatio: 0, positiveRatio: 0.5 });
+  assert.deepEqual(signedCurrentGauge(75), { positionRatio: 1, negativeRatio: 0, positiveRatio: 1 });
 });
