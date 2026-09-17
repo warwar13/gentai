@@ -21,15 +21,13 @@ import {
 import {
   assessCellBalance,
   assessHealth,
+  assessPower,
   assessTemperature,
-  CELL_DELTA_GAUGE_MAX_MV,
-  CURRENT_GAUGE_MAX_A,
   gaugeRatio,
   PACK_VOLTAGE_MAX_V,
   PACK_VOLTAGE_MIN_V,
-  signedCurrentGauge,
+  POWER_LIMIT_W,
   socGaugeAngle,
-  TEMPERATURE_GAUGE_MAX_C,
 } from "./status.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -561,23 +559,19 @@ function renderTelemetry(data) {
   $("#mode-pill").textContent = titleCase(data.mode);
 
   setValue("#hero-power-value", Math.abs(data.powerW), 0);
+  setValue("#power-value", Math.abs(data.powerW), 0);
+  const powerStatus = assessPower(data.powerW);
+  setGlanceState("#power-card", "#power-caption", powerStatus);
+  setMeterAngle("#power-card", gaugeRatio(Math.abs(data.powerW), 0, POWER_LIMIT_W), Math.abs(data.powerW));
   setValue("#voltage-value", data.voltageV, 2);
   $("#hero-voltage-value").textContent = `${formatNumber(data.voltageV, 2)} V`;
   setMeterAngle("#voltage-card", gaugeRatio(data.voltageV, PACK_VOLTAGE_MIN_V, PACK_VOLTAGE_MAX_V), data.voltageV);
-  $("#current-value").textContent = `${data.currentA > 0 ? "+" : ""}${formatNumber(data.currentA, 2)}`;
-  $("#current-caption").textContent = data.currentA > 0 ? "Positive means charging" : data.currentA < 0 ? "Negative means discharging" : "No measurable current";
-  $("#current-card").dataset.status = data.currentA > 0.15 ? "good" : data.currentA < -0.15 ? "warning" : "neutral";
-  setSignedCurrentMeter("#current-card", data.currentA);
   setValue("#soh-value", data.sohPct, 0);
   setValue("#ambient-value", data.temperaturesC.ambient, 0);
   setValue("#mos-value", data.temperaturesC.mos, 0);
   const temperatures = [data.temperaturesC.ambient, data.temperaturesC.mos, ...(data.temperaturesC.probes ?? [])].filter(Number.isFinite);
   const maximumTemperature = temperatures.length ? Math.max(...temperatures) : null;
-  $("#temperature-value").textContent = maximumTemperature === null ? "—" : formatNumber(maximumTemperature, 0);
   $("#hero-temperature-value").textContent = maximumTemperature === null ? "— °C" : `${formatNumber(maximumTemperature, 0)} °C`;
-  const temperatureStatus = assessTemperature(maximumTemperature, "mos");
-  setGlanceState("#temperature-card", "#temperature-caption", temperatureStatus);
-  setMeterAngle("#temperature-card", gaugeRatio(maximumTemperature, 0, TEMPERATURE_GAUGE_MAX_C), maximumTemperature);
   setGlanceState("#health-card", "#soh-caption", assessHealth(data.sohPct));
   setGlanceState("#ambient-card", "#ambient-caption", assessTemperature(data.temperaturesC.ambient, "ambient"));
   setGlanceState("#mos-card", "#mos-caption", assessTemperature(data.temperaturesC.mos, "mos"));
@@ -614,9 +608,12 @@ function renderCells(cells, min, max, delta) {
   $("#cell-min").textContent = min === null ? "— V" : `${formatNumber(min, 3)} V`;
   $("#cell-max").textContent = max === null ? "— V" : `${formatNumber(max, 3)} V`;
   $("#cell-delta").textContent = delta === null ? "— mV" : `${formatNumber(delta * 1000, 0)} mV`;
-  $("#cell-balance-value").textContent = deltaMv === null ? "—" : formatNumber(deltaMv, 0);
-  setGlanceState("#cell-balance-card", "#cell-balance-caption", balance);
-  setMeterAngle("#cell-balance-card", gaugeRatio(deltaMv, 0, CELL_DELTA_GAUGE_MAX_MV), deltaMv);
+  $("#instrument-cell-delta").textContent = deltaMv === null ? "—" : formatNumber(deltaMv, 0);
+  setGlanceState("#instrument-delta-card", "#instrument-delta-caption", balance);
+  $("#instrument-cell-list").innerHTML = Array.from({ length: 4 }, (_, index) => {
+    const value = cells[index];
+    return `<article class="instrument-cell" data-status="${Number.isFinite(value) ? balance.state : "neutral"}"><span>C${index + 1}</span><strong>${Number.isFinite(value) ? formatNumber(value, 3) : "—"}</strong><small>V</small></article>`;
+  }).join("");
   $("#cell-list").innerHTML = cells.length
     ? cells.map((value, index) => `<div class="cell-item" data-status="${balance.state}"><span>Cell ${index + 1}</span><strong>${formatNumber(value, 3)} V</strong><i aria-hidden="true"></i></div>`).join("")
     : "<p>No cell readings</p>";
@@ -641,18 +638,6 @@ function setMeterAngle(selector, ratio, value = null) {
   card.style.setProperty("--meter-needle-angle", `${safeRatio * 270}deg`);
   const meter = card.querySelector(".instrument-dial");
   if (meter && Number.isFinite(value)) meter.setAttribute("aria-valuenow", `${value}`);
-}
-
-function setSignedCurrentMeter(selector, currentA) {
-  const gauge = signedCurrentGauge(currentA, CURRENT_GAUGE_MAX_A);
-  const card = $(selector);
-  const negativeAngle = gauge.negativeRatio * 135;
-  card.style.setProperty("--meter-negative-angle", `${gauge.negativeRatio * 135}deg`);
-  card.style.setProperty("--meter-negative-start", `${360 - negativeAngle}deg`);
-  card.style.setProperty("--meter-positive-angle", `${gauge.positiveRatio * 135}deg`);
-  card.style.setProperty("--meter-needle-angle", `${gauge.positionRatio * 270}deg`);
-  const meter = card.querySelector(".instrument-dial");
-  if (meter && Number.isFinite(currentA)) meter.setAttribute("aria-valuenow", `${currentA}`);
 }
 
 function renderWarnings(warnings) {

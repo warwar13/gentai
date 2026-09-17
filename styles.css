@@ -382,12 +382,6 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 0);
   mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 0);
 }
-.bipolar-card .instrument-dial::before {
-  background:
-    conic-gradient(from var(--meter-negative-start), var(--status-color) 0 var(--meter-negative-angle), transparent var(--meter-negative-angle)),
-    conic-gradient(from 0deg, var(--status-color) 0 var(--meter-positive-angle), transparent var(--meter-positive-angle)),
-    conic-gradient(from 225deg, rgba(173, 184, 169, 0.12) 0 270deg, transparent 270deg);
-}
 .instrument-needle {
   width: 2px;
   height: 45px;
@@ -415,8 +409,7 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .instrument-dial strong { width: 100%; margin: 0; position: absolute; left: 0; bottom: 0; z-index: 3; color: var(--status-color); font-size: 1.35rem; }
 .instrument-scale { width: min(138px, 100%); margin: -2px auto 3px; display: flex !important; justify-content: space-between; position: relative; color: var(--muted); }
 .instrument-scale b { font-size: 0.5rem; font-weight: 650; }
-.instrument-scale-three b:nth-child(2) { position: absolute; left: 50%; transform: translateX(-50%); }
-.vitals-grid { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.vitals-grid { margin-top: 10px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .vital-card { --status-color: var(--muted); min-width: 0; padding: 10px; border-radius: 14px; text-align: center; background: rgba(6, 10, 7, 0.52); border: 1px solid var(--line); }
 .vital-card[data-status="good"] { --status-color: var(--lime); }
 .vital-card[data-status="warning"] { --status-color: var(--amber); }
@@ -424,6 +417,14 @@ h3 { font-size: 0.78rem; color: var(--muted); font-weight: 650; }
 .vital-card > span, .vital-card > strong, .vital-card > small { display: block; }
 .vital-card > span, .vital-card > small { overflow: hidden; color: var(--muted); font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
 .vital-card > strong { margin: 5px 0 3px; color: var(--status-color); font-size: 0.9rem; }
+.instrument-cell-grid { margin-top: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.instrument-cell { --status-color: var(--muted); min-width: 0; padding: 9px 5px; border-radius: 13px; text-align: center; background: rgba(6, 10, 7, 0.52); border: 1px solid var(--line); }
+.instrument-cell[data-status="good"] { --status-color: var(--lime); border-color: rgba(168, 224, 99, 0.22); }
+.instrument-cell[data-status="warning"] { --status-color: var(--amber); border-color: rgba(255, 200, 87, 0.28); }
+.instrument-cell[data-status="danger"] { --status-color: var(--red); border-color: rgba(255, 107, 107, 0.34); }
+.instrument-cell span, .instrument-cell strong, .instrument-cell small { display: block; }
+.instrument-cell span, .instrument-cell small { color: var(--muted); font-size: 0.56rem; }
+.instrument-cell strong { margin: 4px 0 2px; overflow: hidden; color: var(--status-color); font-size: 0.84rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .capacity-test-panel { grid-area: capacity; }
 .capacity-test-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
@@ -687,6 +688,7 @@ dialog dd { margin: 0; text-align: right; }
   .metric-card { min-height: 150px; padding: 10px 7px; }
   .instrument-dial { transform: scale(0.92); margin-left: -3px; margin-right: -3px; }
   .vitals-grid { gap: 5px; }
+  .instrument-cell-grid { gap: 5px; }
   .vital-card { padding: 9px 5px; }
 }
 

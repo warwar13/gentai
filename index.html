@@ -104,7 +104,7 @@
         <div class="panel-heading compact">
           <div>
             <p class="eyebrow">Live instruments</p>
-            <h2 id="instruments-title">Electrical & thermal load</h2>
+            <h2 id="instruments-title">Power & battery status</h2>
           </div>
         </div>
         <div class="metrics-grid" aria-label="Live measurements">
@@ -113,26 +113,23 @@
             <span class="instrument-scale"><b>10.0</b><b>14.6 V</b></span>
             <span>4S LiFePO₄ range</span>
           </article>
-          <article id="current-card" class="metric-card instrument-card bipolar-card" data-status="neutral" style="--meter-negative-angle: 0deg; --meter-negative-start: 360deg; --meter-positive-angle: 0deg; --meter-needle-angle: 135deg">
-            <p>Signed current</p><div class="instrument-dial" role="meter" aria-label="Signed current" aria-valuemin="-50" aria-valuemax="50"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="current-value">—</span><small>A</small></strong></div>
-            <span class="instrument-scale instrument-scale-three"><b>−50</b><b>0</b><b>+50 A</b></span>
-            <span id="current-caption">Signed BMS current</span>
-          </article>
-          <article id="temperature-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg; --meter-needle-angle: 0deg">
-            <p>Temperature</p><div class="instrument-dial" role="meter" aria-label="Highest battery temperature" aria-valuemin="0" aria-valuemax="65"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="temperature-value">—</span><small>°C</small></strong></div>
-            <span class="instrument-scale"><b>0</b><b>65°C</b></span>
-            <span id="temperature-caption" class="metric-status">Waiting</span>
-          </article>
-          <article id="cell-balance-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg; --meter-needle-angle: 0deg">
-            <p>Cell balance</p><div class="instrument-dial" role="meter" aria-label="Cell voltage difference" aria-valuemin="0" aria-valuemax="100"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="cell-balance-value">—</span><small>mV</small></strong></div>
-            <span class="instrument-scale"><b>0</b><b>100 mV</b></span>
-            <span id="cell-balance-caption" class="metric-status">Waiting for cells</span>
+          <article id="power-card" class="metric-card instrument-card" data-status="neutral" style="--meter-angle: 0deg; --meter-needle-angle: 0deg">
+            <p>Live wattage</p><div class="instrument-dial" role="meter" aria-label="Absolute live battery power" aria-valuemin="0" aria-valuemax="600"><i class="instrument-needle" aria-hidden="true"></i><strong><span id="power-value">—</span><small>W</small></strong></div>
+            <span class="instrument-scale"><b>0</b><b>600 W</b></span>
+            <span id="power-caption" class="metric-status">Waiting</span>
           </article>
         </div>
         <div class="vitals-grid">
           <article id="health-card" class="vital-card" data-status="neutral"><span>Health</span><strong><span id="soh-value">—</span>%</strong><small id="soh-caption">Waiting</small></article>
           <article id="ambient-card" class="vital-card" data-status="neutral"><span>Ambient</span><strong><span id="ambient-value">—</span>°C</strong><small id="ambient-caption">Waiting</small></article>
           <article id="mos-card" class="vital-card" data-status="neutral"><span>MOS</span><strong><span id="mos-value">—</span>°C</strong><small id="mos-caption">Waiting</small></article>
+          <article id="instrument-delta-card" class="vital-card" data-status="neutral"><span>Cell difference</span><strong><span id="instrument-cell-delta">—</span> mV</strong><small id="instrument-delta-caption">Waiting</small></article>
+        </div>
+        <div id="instrument-cell-list" class="instrument-cell-grid" aria-label="Individual cell voltages">
+          <article class="instrument-cell" data-status="neutral"><span>C1</span><strong>—</strong><small>V</small></article>
+          <article class="instrument-cell" data-status="neutral"><span>C2</span><strong>—</strong><small>V</small></article>
+          <article class="instrument-cell" data-status="neutral"><span>C3</span><strong>—</strong><small>V</small></article>
+          <article class="instrument-cell" data-status="neutral"><span>C4</span><strong>—</strong><small>V</small></article>
         </div>
       </section>
 

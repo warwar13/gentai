@@ -7,7 +7,6 @@ import {
   assessTemperature,
   gaugeRatio,
   POWER_LIMIT_W,
-  signedCurrentGauge,
   socGaugeAngle,
 } from "../status.js";
 
@@ -43,11 +42,4 @@ test("normalizes the 4S LiFePO4 voltage gauge and clamps visual overflow", () =>
   assert.equal(gaugeRatio(14.6, 10, 14.6), 1);
   assert.equal(gaugeRatio(16, 10, 14.6), 1);
   assert.equal(gaugeRatio(8, 10, 14.6), 0);
-});
-
-test("maps signed current around a centered zero", () => {
-  assert.deepEqual(signedCurrentGauge(-50), { positionRatio: 0, negativeRatio: 1, positiveRatio: 0 });
-  assert.deepEqual(signedCurrentGauge(0), { positionRatio: 0.5, negativeRatio: 0, positiveRatio: 0 });
-  assert.deepEqual(signedCurrentGauge(25), { positionRatio: 0.75, negativeRatio: 0, positiveRatio: 0.5 });
-  assert.deepEqual(signedCurrentGauge(75), { positionRatio: 1, negativeRatio: 0, positiveRatio: 1 });
 });
